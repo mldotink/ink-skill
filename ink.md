@@ -25,7 +25,9 @@ curl -s https://api.ml.ink/graphql \
   -d '{"query": "{ __schema { queryType { name } mutationType { name } types { kind name fields(includeDeprecated: false) { name args { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } inputFields { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } enumValues { name } } } }"}' | jq
 ```
 
-This returns the full schema — all queries, mutations, return types, input types (like `CreateServiceInput`), and enums. Use it to discover fields, arguments, and types before constructing queries.
+This returns the full schema -- all queries, mutations, return types, input types (like `CreateServiceInput`), and enums. Use it to discover fields, arguments, and types before constructing queries.
+
+An example response is saved in `example-schema.json` in this directory.
 
 ## Common Operations
 
@@ -35,7 +37,7 @@ This returns the full schema — all queries, mutations, return types, input typ
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"query": "{ me { id email displayName username } }"}' | jq
+  -d '{"query": "{ accountStatus { id email displayName username hasGitHubApp defaultWorkspace } }"}' | jq
 ```
 
 ### Services
@@ -99,12 +101,6 @@ curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "{ projectList { nodes { id name slug services { name status } } totalCount } }"}' | jq
-
-# Get project details
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "query($id: ID!) { projectGet(id: $id) { id name slug services { id name status fqdn } createdAt } }", "variables": {"id": "PROJECT_ID"}}' | jq
 
 # Delete project
 curl -s https://api.ml.ink/graphql \
@@ -184,18 +180,6 @@ curl -s https://api.ml.ink/graphql \
   -H "Content-Type: application/json" \
   -d '{"query": "{ dnsListZones { id zone status records { id name type content ttl } } }"}' | jq
 
-# Create a zone
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "mutation($zone: String!) { dnsCreateZone(zone: $zone) { zoneId zone status dnsRecords { host type value verified } } }", "variables": {"zone": "example.com"}}' | jq
-
-# Verify a zone (after setting NS records)
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "mutation($zone: String!) { dnsVerifyZone(zone: $zone) { zoneId zone status message dnsRecords { host type value verified } } }", "variables": {"zone": "example.com"}}' | jq
-
 # List records in a zone
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
@@ -213,13 +197,9 @@ curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "mutation($zone: String!, $recordId: ID!) { dnsDeleteRecord(zone: $zone, recordId: $recordId) }", "variables": {"zone": "example.com", "recordId": "RECORD_ID"}}' | jq
-
-# Delete a zone
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "mutation($zone: String!) { dnsDeleteZone(zone: $zone) { zoneId message } }", "variables": {"zone": "example.com"}}' | jq
 ```
+
+Note: Zone creation/verification/deletion must be done through the web dashboard at https://ml.ink/dns.
 
 ### Custom Domains
 
@@ -260,48 +240,41 @@ curl -s https://api.ml.ink/graphql \
   -H "Content-Type: application/json" \
   -d '{"query": "query($ws: String!) { workspaceListMembers(workspaceSlug: $ws) { id email displayName role joinedAt } }", "variables": {"ws": "my-team"}}' | jq
 
+# List invites for a workspace
+curl -s https://api.ml.ink/graphql \
+  -H "Authorization: Bearer $INK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "query($ws: String!) { workspaceListInvites(workspaceSlug: $ws) { id role status inviteeDisplayName createdAt } }", "variables": {"ws": "my-team"}}' | jq
+
 # Invite a user
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "mutation($wsId: ID!, $user: String!, $role: String) { workspaceInvite(workspaceId: $wsId, user: $user, role: $role) { id role status } }", "variables": {"wsId": "WORKSPACE_ID", "user": "user@example.com", "role": "member"}}' | jq
 
+# Accept/decline invites
+curl -s https://api.ml.ink/graphql \
+  -H "Authorization: Bearer $INK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "mutation($id: ID!) { workspaceAcceptInvite(inviteId: $id) }", "variables": {"id": "INVITE_ID"}}' | jq
+
+# Revoke an invite (admin/owner)
+curl -s https://api.ml.ink/graphql \
+  -H "Authorization: Bearer $INK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "mutation($id: ID!) { workspaceRevokeInvite(inviteId: $id) }", "variables": {"id": "INVITE_ID"}}' | jq
+
+# Remove a member (admin/owner)
+curl -s https://api.ml.ink/graphql \
+  -H "Authorization: Bearer $INK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "mutation($wsId: ID!, $userId: ID!) { workspaceRemoveMember(workspaceId: $wsId, userId: $userId) }", "variables": {"wsId": "WORKSPACE_ID", "userId": "USER_ID"}}' | jq
+
 # Delete workspace
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "mutation($id: ID!) { workspaceDelete(id: $id) }", "variables": {"id": "WORKSPACE_ID"}}' | jq
-```
-
-### Observability
-
-```bash
-# Service logs
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "query($input: LogsInput!) { serviceLogs(input: $input) { entries { timestamp level message } hasMore } }", "variables": {"input": {"serviceId": "SERVICE_ID", "logType": "RUNTIME", "limit": 50}}}' | jq
-
-# Service metrics
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "query($id: ID!) { serviceMetrics(serviceId: $id, timeRange: ONE_HOUR) { cpuUsage { dataPoints { timestamp value } } memoryUsageMB { dataPoints { timestamp value } } memoryLimitMB cpuLimitVCPUs } }", "variables": {"id": "SERVICE_ID"}}' | jq
-
-# Resource limits / quota
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "{ resourceLimits { tier maxVcpus maxMemoryMi maxServices usage { services memoryMi vcpus } } }"}' | jq
-```
-
-### Billing
-
-```bash
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "query($ws: String!) { workspaceBilling(workspaceSlug: $ws) { paymentMethod currentUsageCents depositBalance suspended subscription { tier status currentPeriodEnd } } }", "variables": {"ws": "default"}}' | jq
 ```
 
 ### Action Log
@@ -338,6 +311,5 @@ curl -s https://api.ml.ink/graphql \
 - When deploying, always confirm the repo URL and branch with the user first.
 - For environment variables, ask the user rather than guessing values.
 - Show the service URL (fqdn) after successful deployment.
-- Log types for `serviceLogs`: `BUILD` (build logs) and `RUNTIME` (application logs).
-- Metric time ranges: `ONE_HOUR`, `SIX_HOURS`, `SEVEN_DAYS`, `THIRTY_DAYS`.
+- Zone creation/verification/deletion is done through the web dashboard at https://ml.ink/dns. The API supports listing zones, managing records, and attaching custom domains.
 - Use introspection to discover input types and return fields if you need more detail than shown here.
