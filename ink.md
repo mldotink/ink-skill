@@ -17,35 +17,15 @@ Use `curl` to call the API. Always use `-s` and pipe through `jq` for readable o
 
 ## Discover the API
 
-Introspect the endpoint to see all available queries and mutations:
+Before making calls, introspect the endpoint to see all available queries, mutations, types, and input types. Introspection does not require authentication:
 
 ```bash
-# List all queries
 curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"query": "{ __schema { queryType { fields { name description args { name type { name kind ofType { name } } } } } } }"}' | jq '.data.__schema.queryType.fields[] | {name, args: [.args[].name]}'
-
-# List all mutations
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "{ __schema { mutationType { fields { name description args { name type { name kind ofType { name } } } } } } }"}' | jq '.data.__schema.mutationType.fields[] | {name, args: [.args[].name]}'
-
-# Inspect a specific type (e.g. Service)
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "{ __type(name: \"Service\") { fields { name type { name kind ofType { name } } } } }"}' | jq '.data.__type.fields[] | {name, type: (.type.name // .type.ofType.name)}'
-
-# Inspect an input type (e.g. CreateServiceInput)
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "{ __type(name: \"CreateServiceInput\") { inputFields { name type { name kind ofType { name } } } } }"}' | jq '.data.__type.inputFields[] | {name, type: (.type.name // .type.ofType.name)}'
+  -d '{"query": "{ __schema { queryType { name } mutationType { name } types { kind name fields(includeDeprecated: false) { name args { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } inputFields { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } enumValues { name } } } }"}' | jq
 ```
 
-API key auth returns only agent-visible fields. Use introspection to discover the full set of operations available to you.
+This returns the full schema — all queries, mutations, return types, input types (like `CreateServiceInput`), and enums. Use it to discover fields, arguments, and types before constructing queries.
 
 ## Common Operations
 
