@@ -1,10 +1,10 @@
 ---
-name: ink-skill
+name: ink
 description: Deploy and manage cloud services on Ink (ml.ink) using the GraphQL API. Use when deploying apps, managing services, databases, DNS, custom domains, or checking infrastructure status on Ink.
 license: MIT
 compatibility: Requires curl, jq, git, and access to the internet. Designed for Claude Code.
 metadata:
-  author: AugustDev
+  author: mldotink
   version: "1.0"
 ---
 

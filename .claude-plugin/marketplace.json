@@ -1,0 +1,23 @@
+{
+  "name": "ink",
+  "owner": {
+    "name": "Ink"
+  },
+  "metadata": {
+    "description": "Ink cloud deployment plugin for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "ink",
+      "source": "./",
+      "description": "Deploy and manage cloud services on Ink (ml.ink) using the GraphQL API",
+      "version": "1.0.0",
+      "author": {
+        "name": "Ink"
+      },
+      "skills": [
+        "./skills/ink"
+      ]
+    }
+  ]
+}

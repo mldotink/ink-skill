@@ -5,11 +5,17 @@ Deploy and manage cloud services on [Ink](https://ml.ink) directly from Claude C
 ## Install
 
 ```bash
-# Add as a project skill
-git clone https://github.com/mldotink/ink-skill .claude/skills/ink-skill
+claude install-plugin mldotink/ink-skill
+```
 
-# Or add as a global skill
-git clone https://github.com/mldotink/ink-skill ~/.claude/skills/ink-skill
+Or manually:
+
+```bash
+# Add as a project plugin
+git clone https://github.com/mldotink/ink-skill .claude/plugins/ink-skill
+
+# Or add as a global plugin
+git clone https://github.com/mldotink/ink-skill ~/.claude/plugins/ink-skill
 ```
 
 ## Setup
@@ -29,6 +35,20 @@ Once installed, just ask Claude to deploy, manage services, or check your infras
 - "Create a database and deploy my app with it"
 - "Add a custom domain to my service"
 - "Deploy my frontend and backend as a full-stack app"
+
+## Structure
+
+```
+ink-skill/
+├── .claude-plugin/
+│   ├── plugin.json         # Plugin manifest
+│   └── marketplace.json    # Marketplace listing
+├── skills/
+│   └── ink/
+│       └── SKILL.md        # Deployment instructions
+├── CLAUDE.md               # Plugin context
+└── README.md
+```
 
 ## Alternative: MCP Server
 
