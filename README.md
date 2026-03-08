@@ -1,4 +1,4 @@
-# ink-skill
+# Ink Cloud Skill
 
 Deploy and manage cloud services on [Ink](https://ml.ink) directly from Claude Code.
 
@@ -20,7 +20,7 @@ git clone https://github.com/mldotink/ink-skill ~/.claude/plugins/ink-skill
 
 ## Setup
 
-1. Get an API key from the [Ink dashboard](https://ml.ink) (Settings > API Keys)
+1. Get an API key from the [Ink dashboard](https://ml.ink/onboarding) or under Settings > Agent Keys
 2. Set the environment variable:
    ```bash
    export INK_API_KEY=dk_live_your_key_here
