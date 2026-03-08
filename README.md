@@ -6,10 +6,10 @@ Deploy and manage cloud services on [Ink](https://ml.ink) directly from Claude C
 
 ```bash
 # Add as a project skill
-git clone https://github.com/AugustDev/ink-skill .claude/skills/ink-skill
+git clone https://github.com/mldotink/ink-skill .claude/skills/ink-skill
 
 # Or add as a global skill
-git clone https://github.com/AugustDev/ink-skill ~/.claude/skills/ink-skill
+git clone https://github.com/mldotink/ink-skill ~/.claude/skills/ink-skill
 ```
 
 ## Setup
@@ -32,4 +32,4 @@ Once installed, just ask Claude to deploy, manage services, or check your infras
 
 ## Alternative: MCP Server
 
-For a richer integration with tool-calling support, use the [Ink MCP Server](https://github.com/AugustDev/ink-mcp) instead.
+For a richer integration with tool-calling support, use the [Ink MCP Server](https://github.com/mldotink/ink-mcp) instead.
