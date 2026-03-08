@@ -23,7 +23,7 @@ Get one from the [Ink dashboard](https://ml.ink/onboarding) or under Settings > 
 **Auth:** `Authorization: Bearer $INK_API_KEY`
 **Method:** POST with `{"query": "...", "variables": {...}}`
 
-Use `curl -s` and pipe through `jq` for readable output. The `Content-Type: application/json` header is required.
+Every request must include both headers: `Authorization: Bearer $INK_API_KEY` and `Content-Type: application/json`. Examples below omit `Content-Type` for brevity -- always include it.
 
 ## First Steps
 
@@ -44,7 +44,6 @@ Always call `accountStatus` before starting work. It tells you the user's identi
 ```bash
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "{ accountStatus { id email hasGitHubOAuth hasGitHubApp defaultWorkspace depositBalance subscriptionTier subscriptionExpiresAt } }"}' | jq
 ```
 
@@ -94,13 +93,11 @@ Deploy a backend API, then a frontend that connects to it via env var.
 # 1. Check existing services to avoid duplicates
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "{ serviceList { nodes { name status fqdn } } }"}' | jq
 
 # 2. Create a repo for the backend and push code
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "mutation($input: RepoCreateInput!) { repoCreate(input: $input) { repo gitRemote } }", "variables": {"input": {"name": "my-api"}}}' | jq
 
 # Push code using the returned gitRemote URL
@@ -110,19 +107,16 @@ git push ink main
 # 3. Deploy the backend API
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "mutation($input: CreateServiceInput!) { serviceCreate(input: $input) { serviceId name status } }", "variables": {"input": {"name": "my-api", "repo": "my-api", "port": 8080, "memory": "512Mi", "envVars": [{"key": "NODE_ENV", "value": "production"}]}}}' | jq
 
 # 4. Poll until backend is active (status goes: queued -> building -> deploying -> active)
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "query($id: ID!) { serviceGet(id: $id) { status fqdn errorMessage } }", "variables": {"id": "SERVICE_ID_FROM_STEP_3"}}' | jq
 
 # 5. Create a repo for the frontend and push code
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "mutation($input: RepoCreateInput!) { repoCreate(input: $input) { repo gitRemote } }", "variables": {"input": {"name": "my-frontend"}}}' | jq
 
 git remote add ink-frontend <gitRemote_from_above>
@@ -131,7 +125,6 @@ git push ink-frontend main
 # 6. Deploy the frontend with the backend URL injected as env var
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "mutation($input: CreateServiceInput!) { serviceCreate(input: $input) { serviceId name status } }", "variables": {"input": {"name": "my-frontend", "repo": "my-frontend", "port": 3000, "envVars": [{"key": "VITE_API_URL", "value": "https://my-api.ml.ink"}]}}}' | jq
 ```
 
@@ -145,7 +138,6 @@ Provision a SQLite database, then deploy a service wired to it.
 # 1. Create a database -- returns connection credentials
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "mutation($input: CreateResourceInput!) { resourceCreate(input: $input) { name databaseUrl authToken } }", "variables": {"input": {"name": "my-db"}}}' | jq
 
 # Save the databaseUrl and authToken from the response
@@ -153,7 +145,6 @@ curl -s https://api.ml.ink/graphql \
 # 2. Create repo and push code
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "mutation($input: RepoCreateInput!) { repoCreate(input: $input) { repo gitRemote } }", "variables": {"input": {"name": "my-app"}}}' | jq
 
 git remote add ink <gitRemote>
@@ -162,7 +153,6 @@ git push ink main
 # 3. Deploy the service with database credentials as env vars
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "mutation($input: CreateServiceInput!) { serviceCreate(input: $input) { serviceId name status } }", "variables": {"input": {"name": "my-app", "repo": "my-app", "port": 3000, "envVars": [{"key": "DATABASE_URL", "value": "<databaseUrl_from_step_1>"}, {"key": "DATABASE_AUTH_TOKEN", "value": "<authToken_from_step_1>"}]}}}' | jq
 ```
 
@@ -174,7 +164,6 @@ Deploy multiple services from different subdirectories of the same repo.
 # 1. Create one repo for the monorepo
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "mutation($input: RepoCreateInput!) { repoCreate(input: $input) { repo gitRemote } }", "variables": {"input": {"name": "my-monorepo"}}}' | jq
 
 git remote add ink <gitRemote>
@@ -183,13 +172,11 @@ git push ink main
 # 2. Deploy the backend from the backend/ subdirectory
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "mutation($input: CreateServiceInput!) { serviceCreate(input: $input) { serviceId name status } }", "variables": {"input": {"name": "mono-api", "repo": "my-monorepo", "rootDirectory": "backend", "port": 8080}}}' | jq
 
 # 3. Deploy the frontend from the frontend/ subdirectory as a static SPA
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "mutation($input: CreateServiceInput!) { serviceCreate(input: $input) { serviceId name status } }", "variables": {"input": {"name": "mono-web", "repo": "my-monorepo", "rootDirectory": "frontend", "publishDirectory": "dist", "envVars": [{"key": "VITE_API_URL", "value": "https://mono-api.ml.ink"}]}}}' | jq
 ```
 
@@ -203,7 +190,6 @@ Use GitHub repos instead of Ink's internal git. Requires `hasGitHubOAuth: true` 
 # Deploy directly from a GitHub repo
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "mutation($input: CreateServiceInput!) { serviceCreate(input: $input) { serviceId name status } }", "variables": {"input": {"name": "my-app", "repo": "username/repo-name", "host": "github", "port": 3000}}}' | jq
 ```
 
@@ -217,13 +203,11 @@ Requires a DNS zone delegated to Ink first (done via the web dashboard at https:
 # 1. Check the zone is active
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "{ dnsListZones { zone status } }"}' | jq
 
 # 2. Attach the domain to a service (auto-creates DNS records and TLS cert)
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "mutation($name: String!, $domain: String!) { domainAdd(name: $name, domain: $domain) { domain status message } }", "variables": {"name": "my-app", "domain": "app.example.com"}}' | jq
 ```
 
@@ -235,13 +219,11 @@ Use `serviceUpdate` only for configuration changes. Pushing code auto-redeploys 
 # Scale up memory and CPU
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "mutation($input: UpdateServiceInput!) { serviceUpdate(input: $input) { serviceId status } }", "variables": {"input": {"name": "my-app", "memory": "1Gi", "vcpus": "1"}}}' | jq
 
 # Update env vars (replaces all existing vars)
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "mutation($input: UpdateServiceInput!) { serviceUpdate(input: $input) { serviceId status } }", "variables": {"input": {"name": "my-app", "envVars": [{"key": "NODE_ENV", "value": "production"}, {"key": "API_KEY", "value": "sk-xxx"}]}}}' | jq
 ```
 
@@ -251,13 +233,11 @@ curl -s https://api.ml.ink/graphql \
 # Check status and error message
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "query($id: ID!) { serviceGet(id: $id) { name status errorMessage fqdn } }", "variables": {"id": "SERVICE_ID"}}' | jq
 
 # Check the action log for recent operations
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"query": "{ actionLogList(limit: 10) { nodes { action entityType entityId source createdAt } } }"}' | jq
 ```
 
