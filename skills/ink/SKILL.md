@@ -224,7 +224,7 @@ These are the most common individual operations. For full field details, check t
 
 | Operation | Query/Mutation |
 |---|---|
-| Who am I | `{ accountStatus { id email hasGitHubApp defaultWorkspace } }` |
+| Account status | `{ accountStatus { id email hasGitHubApp defaultWorkspace } }` |
 | List services | `{ serviceList { nodes { name status fqdn } totalCount } }` |
 | Get service | `serviceGet(id: ID!) { ... }` |
 | Create service | `serviceCreate(input: CreateServiceInput!) { serviceId name status }` |
