@@ -15,7 +15,7 @@ Deploy and manage cloud services on [Ink](https://ml.ink) using the GraphQL API.
 ## Setup
 
 Set the `INK_API_KEY` environment variable with your Ink API key (starts with `dk_live_`).
-Get one from the [Ink dashboard](https://ml.ink) under Settings > API Keys.
+Get one from the [Ink dashboard](https://ml.ink/onboarding) or under Settings > Agent Keys.
 
 ## API
 
@@ -23,17 +23,66 @@ Get one from the [Ink dashboard](https://ml.ink) under Settings > API Keys.
 **Auth:** `Authorization: Bearer $INK_API_KEY`
 **Method:** POST with `{"query": "...", "variables": {...}}`
 
-Use `curl -s` and pipe through `jq` for readable output.
+Use `curl -s` and pipe through `jq` for readable output. The `Content-Type: application/json` header is required.
 
-## First Step: Fetch the Schema
+## First Steps
 
-Before making any API calls, always fetch the latest schema. It contains all queries, mutations, types, input fields with descriptions, and default values:
+### 1. Fetch the Schema
+
+Before making any API calls, fetch the latest schema. It contains all queries, mutations, types, input fields with descriptions, and default values:
 
 ```bash
 curl -s https://api.ml.ink/schema
 ```
 
 Read the schema output to understand the exact fields, arguments, and types available. The schema is self-documenting with descriptions on every field. Use it as your primary reference rather than memorizing queries.
+
+### 2. Check Account Status
+
+Always call `accountStatus` before starting work. It tells you the user's identity, which git provider is available, and billing state:
+
+```bash
+curl -s https://api.ml.ink/graphql \
+  -H "Authorization: Bearer $INK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ accountStatus { id email hasGitHubOAuth hasGitHubApp defaultWorkspace depositBalance subscriptionTier subscriptionExpiresAt } }"}' | jq
+```
+
+Key fields:
+- `hasGitHubOAuth` -- user connected GitHub OAuth (can create repos and push code via GitHub)
+- `hasGitHubApp` -- Ink GitHub App is installed (can pull code from GitHub during deployments)
+- `depositBalance` -- credit balance in USD for the default workspace
+- `subscriptionTier` -- current plan: `free`, `pro`, or `team`
+- `subscriptionExpiresAt` -- when the current billing period ends
+
+## Git: Two Options
+
+Ink supports two git providers. Check `accountStatus` to determine which to use.
+
+### Option 1: Ink Internal Git (default)
+
+Zero-setup, works for everyone. No GitHub account needed.
+
+- Create repos with `repoCreate(input: { name: "..." })` -- returns a `gitRemote` URL with embedded auth token
+- Push code: `git remote add ink <gitRemote> && git push ink main`
+- Pushing to the repo automatically triggers redeployment -- no need to call `serviceUpdate`
+- Use `host: "ink"` (default) in `serviceCreate`
+
+### Option 2: GitHub
+
+Requires both OAuth and GitHub App. Check `accountStatus`:
+- `hasGitHubOAuth: true` -- OAuth connected, allows creating repos and pushing code on user's behalf
+- `hasGitHubApp: true` -- GitHub App installed, allows Ink to pull code during deployment
+
+If either is `false`, direct the user to connect GitHub at https://ml.ink (Settings > GitHub).
+
+- Create repos with `repoCreate(input: { name: "...", host: "github" })`
+- Use `host: "github"` in `serviceCreate`
+- Pushing to the GitHub repo automatically triggers redeployment via webhook -- no need to call `serviceUpdate`
+
+### Auto-Redeploy
+
+Both git providers trigger automatic redeployment on push. After pushing code, just poll `serviceGet` to track progress -- you do not need to call `serviceUpdate` to redeploy. Use `serviceUpdate` only when changing configuration (memory, env vars, etc.).
 
 ## Deployment Flows
 
@@ -93,7 +142,7 @@ Result: Backend at `https://my-api.ml.ink`, frontend at `https://my-frontend.ml.
 Provision a SQLite database, then deploy a service wired to it.
 
 ```bash
-# 1. Create a database — returns connection credentials
+# 1. Create a database -- returns connection credentials
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
   -H "Content-Type: application/json" \
@@ -148,17 +197,17 @@ The `rootDirectory` sets the build context. The `publishDirectory` tells railpac
 
 ### Deploy from GitHub
 
-Use GitHub repos instead of Ink's internal git. Requires the Ink GitHub App installed.
+Use GitHub repos instead of Ink's internal git. Requires `hasGitHubOAuth: true` and `hasGitHubApp: true` in `accountStatus`.
 
 ```bash
-# Deploy directly from a GitHub repo (public repos work without GitHub App)
+# Deploy directly from a GitHub repo
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "mutation($input: CreateServiceInput!) { serviceCreate(input: $input) { serviceId name status } }", "variables": {"input": {"name": "my-app", "repo": "username/repo-name", "host": "github", "port": 3000}}}' | jq
 ```
 
-With the GitHub App installed, pushes to the repo automatically trigger redeployment.
+Pushes to the GitHub repo automatically trigger redeployment via webhook.
 
 ### Add a custom domain
 
@@ -178,15 +227,11 @@ curl -s https://api.ml.ink/graphql \
   -d '{"query": "mutation($name: String!, $domain: String!) { domainAdd(name: $name, domain: $domain) { domain status message } }", "variables": {"name": "my-app", "domain": "app.example.com"}}' | jq
 ```
 
-### Redeploy or update a service
+### Update a service (scale, env vars, config)
+
+Use `serviceUpdate` only for configuration changes. Pushing code auto-redeploys -- you don't need `serviceUpdate` for that.
 
 ```bash
-# Redeploy with no changes (pulls latest code from the repo)
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "mutation($input: UpdateServiceInput!) { serviceUpdate(input: $input) { serviceId status } }", "variables": {"input": {"name": "my-app"}}}' | jq
-
 # Scale up memory and CPU
 curl -s https://api.ml.ink/graphql \
   -H "Authorization: Bearer $INK_API_KEY" \
@@ -224,11 +269,11 @@ These are the most common individual operations. For full field details, check t
 
 | Operation | Query/Mutation |
 |---|---|
-| Account status | `{ accountStatus { id email hasGitHubApp defaultWorkspace } }` |
+| Account status | `{ accountStatus { id email hasGitHubOAuth hasGitHubApp defaultWorkspace depositBalance subscriptionTier } }` |
 | List services | `{ serviceList { nodes { name status fqdn } totalCount } }` |
 | Get service | `serviceGet(id: ID!) { ... }` |
 | Create service | `serviceCreate(input: CreateServiceInput!) { serviceId name status }` |
-| Update/redeploy | `serviceUpdate(input: UpdateServiceInput!) { serviceId status }` |
+| Update service | `serviceUpdate(input: UpdateServiceInput!) { serviceId status }` |
 | Delete service | `serviceDelete(name: "...") { message }` |
 | List projects | `{ projectList { nodes { name slug } } }` |
 | Delete project | `projectDelete(slug: "...") ` |
@@ -252,11 +297,13 @@ These are the most common individual operations. For full field details, check t
 
 ## Guidelines
 
-- **Always fetch the schema first** with `curl -s https://api.ml.ink/schema` before making API calls. It has the latest fields, types, and defaults.
-- **Check serviceList before deploying** to see if a service already exists. Use `serviceCreate` for new services and `serviceUpdate` to modify or redeploy existing ones.
+- **Start with `accountStatus`** to understand the user's setup: git provider availability, billing state, and default workspace.
+- **Fetch the schema** with `curl -s https://api.ml.ink/schema` before making API calls. It has the latest fields, types, and defaults.
+- **Choose the right git provider.** Use Ink internal git (default) unless `accountStatus` shows both `hasGitHubOAuth` and `hasGitHubApp` are true.
+- **Pushing code auto-redeploys.** After `git push`, just poll `serviceGet` to track progress. Only use `serviceUpdate` for config changes (memory, env vars, etc.).
+- **Check serviceList before deploying** to see if a service already exists. Use `serviceCreate` for new services and `serviceUpdate` to modify existing ones.
 - **Poll serviceGet after create/update** to track deployment progress. Status transitions: queued -> building -> deploying -> active (or failed).
 - **Env vars on update replace all existing vars.** Include all vars you want to keep, not just the new ones.
-- **Internal git is the default** (`host: "ink"`). No GitHub setup needed. Create a repo, push code, deploy.
 - **Service-to-service calls** use the `internalUrl` (e.g. `http://svc.ns.svc.cluster.local:port`) instead of the public FQDN. Lower latency, no TLS overhead.
 - **Memory:** 256Mi (default, fine for most apps), 512Mi, 1Gi, 2Gi, 4Gi, 8Gi.
 - **vCPUs:** 0.25 (default), 0.5, 1, 2, 4.
