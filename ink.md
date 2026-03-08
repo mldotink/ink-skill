@@ -17,17 +17,13 @@ Use `curl` to call the API. Always use `-s` and pipe through `jq` for readable o
 
 ## Discover the API
 
-Before making calls, introspect the endpoint to see all available queries, mutations, types, and input types. Introspection does not require authentication:
+Fetch the full schema as compact GraphQL SDL (no auth required):
 
 ```bash
-curl -s https://api.ml.ink/graphql \
-  -H "Content-Type: application/json" \
-  -d '{"query": "{ __schema { queryType { name } mutationType { name } types { kind name fields(includeDeprecated: false) { name args { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } inputFields { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } enumValues { name } } } }"}' | jq
+curl -s https://api.ml.ink/schema
 ```
 
-This returns the full schema -- all queries, mutations, return types, input types (like `CreateServiceInput`), and enums. Use it to discover fields, arguments, and types before constructing queries.
-
-An example response is saved in `example-schema.json` in this directory.
+This returns all queries, mutations, types, input types, and enums in ~3KB of readable SDL. Use it to discover fields, arguments, and types before constructing queries.
 
 ## Common Operations
 
