@@ -1,3 +1,13 @@
+---
+name: ink-skill
+description: Deploy and manage cloud services on Ink (ml.ink) using the GraphQL API. Use when deploying apps, managing services, databases, DNS, custom domains, or checking infrastructure status on Ink.
+license: MIT
+compatibility: Requires curl, jq, git, and access to the internet. Designed for Claude Code.
+metadata:
+  author: AugustDev
+  version: "1.0"
+---
+
 # Ink Cloud Deployment Skill
 
 Deploy and manage cloud services on [Ink](https://ml.ink) using the GraphQL API.
@@ -206,7 +216,7 @@ curl -s https://api.ml.ink/graphql \
   -d '{"query": "{ actionLogList(limit: 10) { nodes { action entityType entityId source createdAt } } }"}' | jq
 ```
 
-For build and runtime logs, use the MCP tool `service_get` with `deploy_log_lines` and `runtime_log_lines` parameters — logs are not yet available via the GraphQL API.
+For build and runtime logs, use the MCP tool `service_get` with `deploy_log_lines` and `runtime_log_lines` parameters -- logs are not yet available via the GraphQL API.
 
 ## Quick Reference
 
