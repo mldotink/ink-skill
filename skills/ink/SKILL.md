@@ -68,22 +68,32 @@ ink deploy my-app --repo username/repo-name --host github --port 3000
 
 Both git providers trigger automatic redeployment on push. After pushing code, just poll `ink status <name>` to track progress -- you do not need to redeploy manually.
 
-## Passing Secrets
+## Secrets & Environment Variables
 
-Never pass secrets as `--env` flags (they leak into shell history and process listings). Instead, write a `.env` file and use `--env-file`:
+Use `ink secrets` to manage env vars on running services. Changes are merged server-side and trigger an automatic redeploy.
 
 ```bash
-# Write secrets to a temp .env file, then pass via --env-file
+ink secrets set my-app KEY=value KEY2=value2     # set/update vars (merges with existing)
+ink secrets import my-app --file .env            # import from file (merges)
+cat .env | ink secrets import my-app             # import from stdin
+ink secrets list my-app                          # list current vars
+ink secrets unset my-app SECRET_KEY              # remove a single var
+ink secrets delete my-app KEY1 KEY2              # remove multiple vars
+ink secrets set my-app KEY=val --replace         # replace ALL vars (removes unspecified)
+```
+
+For initial deploy, use `--env-file` to pass secrets without leaking them to shell history:
+
+```bash
 cat > .env.deploy <<EOF
 DATABASE_URL=libsql://my-db-myworkspace.turso.io
 DATABASE_AUTH_TOKEN=eyJhbG...
-SECRET_KEY=supersecret
 EOF
-ink deploy my-app --env-file .env.deploy --port 3000
+ink deploy my-app --repo my-app --port 3000 --env-file .env.deploy
 rm .env.deploy
 ```
 
-Use `--env` only for non-sensitive values like `NODE_ENV=production` or `PORT=8080`.
+Use `--env` only for non-sensitive values like `NODE_ENV=production`.
 
 ## Common Operations
 
@@ -100,6 +110,12 @@ ink db create my-db                               # create database
 ink db list                                       # list databases
 ink db token my-db                                # get connection credentials
 ink db delete my-db                               # delete database
+
+ink secrets set my-app KEY=value                  # set env vars (merges)
+ink secrets import my-app --file .env             # import from file
+ink secrets list my-app                           # list env vars
+ink secrets unset my-app KEY                      # remove env var
+ink secrets delete my-app KEY1 KEY2               # remove multiple
 
 ink domains add my-app app.example.com            # add custom domain
 ink domains remove my-app app.example.com         # remove custom domain
@@ -160,15 +176,13 @@ ink deploy my-frontend --repo my-frontend --port 3000 \
 ink db create my-db --json
 # Save databaseUrl and authToken from output
 
-# 2. Write credentials to env file
-cat > .env.deploy <<EOF
-DATABASE_URL=<databaseUrl from step 1>
-DATABASE_AUTH_TOKEN=<authToken from step 1>
-EOF
+# 2. Deploy service
+ink deploy my-app --repo my-app --port 3000
 
-# 3. Deploy service with database credentials
-ink deploy my-app --repo my-app --port 3000 --env-file .env.deploy
-rm .env.deploy
+# 3. Set database credentials (merges with existing vars, triggers redeploy)
+ink secrets set my-app \
+  DATABASE_URL=<databaseUrl from step 1> \
+  DATABASE_AUTH_TOKEN=<authToken from step 1>
 ```
 
 ### Deploy from a monorepo
@@ -208,14 +222,14 @@ ink domains add my-app app.example.com            # auto-creates DNS + TLS
 
 ### Update a service (scale, env vars, config)
 
-Use `ink redeploy` for configuration changes. Pushing code auto-redeploys -- you don't need to call redeploy for that.
+Use `ink secrets` for env var changes. Use `ink redeploy` for resource/config changes. Pushing code auto-redeploys -- you don't need to call redeploy for that.
 
 ```bash
+# Add or update env vars (merges, triggers redeploy)
+ink secrets set my-app NODE_ENV=production API_KEY=sk_live_xxx
+
 # Scale up memory and CPU
 ink redeploy my-app --memory 1Gi --vcpu 1
-
-# Update env vars
-ink redeploy my-app --env NODE_ENV=production --env PORT=8080
 ```
 
 ### Debug a failing deployment
@@ -243,7 +257,8 @@ ink logs my-app                                   # check runtime logs
 - **Memory:** 128Mi, 256Mi (default), 512Mi, 1024Mi, 2048Mi, 4096Mi.
 - **vCPUs:** 0.1, 0.2, 0.25 (default), 0.3, 0.4, 0.5, 1, 2, 3, 4.
 - When deploying, confirm the repo URL and branch with the user first.
-- **Never pass secrets via `--env` flags.** Write secrets to a temporary `.env` file and use `--env-file`. Delete the file after deploy. Use `--env` only for non-sensitive values like `NODE_ENV` or `PORT`.
+- **Use `ink secrets set` for env var changes** on running services. It merges server-side and triggers a redeploy. Never use `ink redeploy --env` to update vars -- it replaces all vars and leaks values to shell history.
+- **For initial deploy secrets**, use `--env-file` with a temp file. Delete the file after deploy. Use `--env` only for non-sensitive values like `NODE_ENV`.
 - Never hardcode or guess secret values. Secrets should come from the user, from `ink db token`, or from other Ink CLI output.
 - Show the service URL after successful deployment.
 - Zone delegation (for custom domains) must be set up by the user at https://ml.ink/dns before you can use `ink domains add`.
