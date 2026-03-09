@@ -1,306 +1,227 @@
 ---
 name: ink
-description: Deploy and manage cloud services on Ink (ml.ink) using the GraphQL API. Use when deploying apps, managing services, databases, DNS, custom domains, or checking infrastructure status on Ink.
-license: MIT
-compatibility: Requires curl, git, and access to the internet. Works with Claude Code, OpenClaw, and other AgentSkills-compatible clients.
-metadata:
-  author: mldotink
-  version: "1.0"
+description: >
+  Deploy and manage cloud services on Ink (ml.ink): create projects, deploy
+  services, provision databases, manage DNS and custom domains, configure
+  workspaces, and monitor deployments. Use this skill whenever the user mentions
+  Ink, ml.ink, deployments, services, databases, or cloud infrastructure on Ink,
+  even if they don't say "Ink" explicitly.
+allowed-tools: Bash(ink:*), Bash(which:*), Bash(command:*), Bash(npm:*), Bash(npx:*), Bash(brew:*), Bash(git:*)
 ---
 
-# Ink Cloud Deployment Skill
+# Use Ink
 
-Deploy and manage cloud services on [Ink](https://ml.ink) using the GraphQL API.
+[Ink](https://ml.ink) is a cloud platform designed for AI agents to deploy and manage services autonomously. It makes deployments simple enough that fully autonomous agents can handle the entire lifecycle: create, deploy, monitor, and scale services without human intervention.
 
-## Authentication
+## Preflight
 
-Before the first API call, resolve the API key by checking these locations in order:
-
-1. **`INK_API_KEY` environment variable** -- if set, use it
-2. **`.ink` file in the current directory** -- per-project key
-3. **`~/.config/ink/credentials`** -- global default
-
-Each location is a plain text file containing just the key (one line, no other formatting):
-```
-dk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-```
-
-**If no valid key is found:**
-1. Ask the user to create one at https://ml.ink/account/api-keys
-2. Once they paste it, validate it starts with `dk_live_`
-3. Ask: "Save globally or just for this project?"
-   - **Globally:** write to `~/.config/ink/credentials`
-   - **This project:** write to `.ink` in the current directory and add `.ink` to `.gitignore`
-4. Save it:
+Before any operation, verify the CLI is installed and authenticated:
 
 ```bash
-# Global
-mkdir -p ~/.config/ink
-echo "dk_live_..." > ~/.config/ink/credentials
-
-# Per-project
-echo "dk_live_..." > .ink
-grep -qxF '.ink' .gitignore 2>/dev/null || echo '.ink' >> .gitignore
+command -v ink                    # CLI installed
+ink whoami                        # authenticated
 ```
 
-After resolving the key, export it for the session:
+If the CLI is missing, install it:
+
 ```bash
-export INK_API_KEY=$(cat <resolved_file>)
+npm install -g @mldotink/cli      # npm (macOS, Linux, Windows)
+brew install mldotink/tap/ink     # Homebrew (macOS)
 ```
 
-**On 401 Unauthorized:** ask the user for a new key and overwrite the stored file.
+If not authenticated, run `ink login`.
 
-## API
+## Configuration
 
-**Endpoint:** `https://api.ml.ink/graphql`
-**Auth:** `Authorization: Bearer $INK_API_KEY`
-**Method:** POST with `{"query": "...", "variables": {...}}`
+Ink CLI resolves context in this order (highest priority first):
 
-Every request must include both headers: `Authorization: Bearer $INK_API_KEY` and `Content-Type: application/json`. Examples below omit `Content-Type` for brevity -- always include it.
+1. **CLI flags** -- `--api-key`, `--workspace`, `--project`
+2. **Environment** -- `INK_API_KEY`
+3. **Local config** -- `.ink` file in current directory
+4. **Global config** -- `~/.config/ink/config`
 
-## First Steps
-
-### 1. Fetch the Schema
-
-Before making any API calls, fetch the latest schema. It contains all queries, mutations, types, input fields with descriptions, and default values:
-
-```bash
-curl -s https://api.ml.ink/schema
-```
-
-Read the schema output to understand the exact fields, arguments, and types available. The schema is self-documenting with descriptions on every field. Use it as your primary reference rather than memorizing queries.
-
-### 2. Check Account Status
-
-Always call `accountStatus` before starting work. It tells you the user's identity, which git provider is available, and billing state:
-
-```bash
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "{ accountStatus { id email hasGitHubOAuth hasGitHubApp defaultWorkspace depositBalance subscriptionTier subscriptionExpiresAt } }"}' ```
-
-Key fields:
-- `hasGitHubOAuth` -- user connected GitHub OAuth (can create repos and push code via GitHub)
-- `hasGitHubApp` -- Ink GitHub App is installed (can pull code from GitHub during deployments)
-- `depositBalance` -- credit balance in USD for the default workspace
-- `subscriptionTier` -- current plan: `free`, `pro`, or `team`
-- `subscriptionExpiresAt` -- when the current billing period ends
+Use `ink whoami` to check current auth. Use `--json` on any command for machine-readable output.
 
 ## Git: Two Options
 
-Ink supports two git providers. Check `accountStatus` to determine which to use.
+Ink supports two git providers. Use `ink whoami` to see which are available.
 
 ### Option 1: Ink Internal Git (default)
 
 Zero-setup, works for everyone. No GitHub account needed.
 
-- Create repos with `repoCreate(input: { name: "..." })` -- returns a `gitRemote` URL with embedded auth token
-- Push code: `git remote add ink <gitRemote> && git push ink main`
-- Pushing to the repo automatically triggers redeployment -- no need to call `serviceUpdate`
-- Use `host: "ink"` (default) in `serviceCreate`
+```bash
+ink repos create my-app           # creates repo, shows git remote URL
+git remote add ink <url>          # add the remote
+git push ink main                 # push code -- auto-triggers deployment
+```
 
 ### Option 2: GitHub
 
-Requires both OAuth and GitHub App. Check `accountStatus`:
-- `hasGitHubOAuth: true` -- OAuth connected, allows creating repos and pushing code on user's behalf
-- `hasGitHubApp: true` -- GitHub App installed, allows Ink to pull code during deployment
+Requires GitHub OAuth and GitHub App connected at https://ml.ink (Settings > GitHub).
 
-If either is `false`, direct the user to connect GitHub at https://ml.ink (Settings > GitHub).
-
-- Create repos with `repoCreate(input: { name: "...", host: "github" })`
-- Use `host: "github"` in `serviceCreate`
-- Pushing to the GitHub repo automatically triggers redeployment via webhook -- no need to call `serviceUpdate`
+```bash
+ink deploy my-app --repo username/repo-name --host github --port 3000
+```
 
 ### Auto-Redeploy
 
-Both git providers trigger automatic redeployment on push. After pushing code, just poll `serviceGet` to track progress -- you do not need to call `serviceUpdate` to redeploy. Use `serviceUpdate` only when changing configuration (memory, env vars, etc.).
+Both git providers trigger automatic redeployment on push. After pushing code, just poll `ink status <name>` to track progress -- you do not need to redeploy manually.
+
+## Common Operations
+
+```bash
+ink list                                          # list all services
+ink status my-app                                 # service details
+ink logs my-app                                   # tail logs
+ink deploy my-app --repo my-app --port 3000       # deploy new service
+ink redeploy my-app                               # redeploy existing
+ink redeploy my-app --memory 1Gi --vcpu 1         # redeploy with new config
+ink delete my-app                                 # delete service
+
+ink db create my-db                               # create database
+ink db list                                       # list databases
+ink db token my-db                                # get connection credentials
+ink db delete my-db                               # delete database
+
+ink domains add my-app app.example.com            # add custom domain
+ink domains remove my-app app.example.com         # remove custom domain
+
+ink dns zones                                     # list DNS zones
+ink dns records example.com                       # list records
+ink dns add example.com --name sub --type A --content 1.2.3.4
+ink dns delete example.com <record-id>
+
+ink repos create my-app                           # create internal git repo
+ink repos token my-app                            # get push token
+
+ink projects list                                 # list projects
+ink workspaces                                    # list workspaces
+```
 
 ## Deployment Flows
 
-### Deploy a full-stack app (API backend + frontend)
-
-Deploy a backend API, then a frontend that connects to it via env var.
+### Deploy a service
 
 ```bash
-# 1. Check existing services to avoid duplicates
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "{ serviceList { nodes { name status fqdn } } }"}' 
-# 2. Create a repo for the backend and push code
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "mutation($input: RepoCreateInput!) { repoCreate(input: $input) { repo gitRemote } }", "variables": {"input": {"name": "my-api"}}}' 
-# Push code using the returned gitRemote URL
-git remote add ink <gitRemote_from_above>
+# 1. Create a repo and push code
+ink repos create my-app
+git remote add ink <gitRemote_from_output>
 git push ink main
 
-# 3. Deploy the backend API
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "mutation($input: CreateServiceInput!) { serviceCreate(input: $input) { serviceId name status } }", "variables": {"input": {"name": "my-api", "repo": "my-api", "port": 8080, "memory": "512Mi", "envVars": [{"key": "NODE_ENV", "value": "production"}]}}}' 
-# 4. Poll until backend is active (status goes: queued -> building -> deploying -> active)
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "query($id: ID!) { serviceGet(id: $id) { status fqdn errorMessage } }", "variables": {"id": "SERVICE_ID_FROM_STEP_3"}}' 
-# 5. Create a repo for the frontend and push code
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "mutation($input: RepoCreateInput!) { repoCreate(input: $input) { repo gitRemote } }", "variables": {"input": {"name": "my-frontend"}}}' 
-git remote add ink-frontend <gitRemote_from_above>
+# 2. Deploy
+ink deploy my-app --repo my-app --port 3000
+
+# 3. Check status (status goes: queued -> building -> deploying -> active)
+ink status my-app
+```
+
+### Deploy a full-stack app (API + frontend)
+
+```bash
+# 1. Deploy backend
+ink repos create my-api
+git remote add ink <url>
+git push ink main
+ink deploy my-api --repo my-api --port 8080
+
+# 2. Wait for backend to be active
+ink status my-api
+
+# 3. Deploy frontend with backend URL
+ink repos create my-frontend
+git remote add ink-frontend <url>
 git push ink-frontend main
+ink deploy my-frontend --repo my-frontend --port 3000 \
+  --env VITE_API_URL=https://my-api.ml.ink
+```
 
-# 6. Deploy the frontend with the backend URL injected as env var
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "mutation($input: CreateServiceInput!) { serviceCreate(input: $input) { serviceId name status } }", "variables": {"input": {"name": "my-frontend", "repo": "my-frontend", "port": 3000, "envVars": [{"key": "VITE_API_URL", "value": "https://my-api.ml.ink"}]}}}' ```
-
-Result: Backend at `https://my-api.ml.ink`, frontend at `https://my-frontend.ml.ink` with the API URL baked in.
-
-### Deploy an app with a database
-
-Provision a SQLite database, then deploy a service wired to it.
+### Deploy with a database
 
 ```bash
-# 1. Create a database -- returns connection credentials
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "mutation($input: CreateResourceInput!) { resourceCreate(input: $input) { name databaseUrl authToken } }", "variables": {"input": {"name": "my-db"}}}' 
-# Save the databaseUrl and authToken from the response
+# 1. Create database
+ink db create my-db
+# Save databaseUrl and authToken from output
 
-# 2. Create repo and push code
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "mutation($input: RepoCreateInput!) { repoCreate(input: $input) { repo gitRemote } }", "variables": {"input": {"name": "my-app"}}}' 
-git remote add ink <gitRemote>
-git push ink main
-
-# 3. Deploy the service with database credentials as env vars
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "mutation($input: CreateServiceInput!) { serviceCreate(input: $input) { serviceId name status } }", "variables": {"input": {"name": "my-app", "repo": "my-app", "port": 3000, "envVars": [{"key": "DATABASE_URL", "value": "<databaseUrl_from_step_1>"}, {"key": "DATABASE_AUTH_TOKEN", "value": "<authToken_from_step_1>"}]}}}' ```
+# 2. Deploy service with database credentials
+ink deploy my-app --repo my-app --port 3000 \
+  --env DATABASE_URL=<databaseUrl> \
+  --env DATABASE_AUTH_TOKEN=<authToken>
+```
 
 ### Deploy from a monorepo
 
-Deploy multiple services from different subdirectories of the same repo.
-
 ```bash
 # 1. Create one repo for the monorepo
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "mutation($input: RepoCreateInput!) { repoCreate(input: $input) { repo gitRemote } }", "variables": {"input": {"name": "my-monorepo"}}}' 
-git remote add ink <gitRemote>
+ink repos create my-monorepo
+git remote add ink <url>
 git push ink main
 
-# 2. Deploy the backend from the backend/ subdirectory
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "mutation($input: CreateServiceInput!) { serviceCreate(input: $input) { serviceId name status } }", "variables": {"input": {"name": "mono-api", "repo": "my-monorepo", "rootDirectory": "backend", "port": 8080}}}' 
-# 3. Deploy the frontend from the frontend/ subdirectory as a static SPA
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "mutation($input: CreateServiceInput!) { serviceCreate(input: $input) { serviceId name status } }", "variables": {"input": {"name": "mono-web", "repo": "my-monorepo", "rootDirectory": "frontend", "publishDirectory": "dist", "envVars": [{"key": "VITE_API_URL", "value": "https://mono-api.ml.ink"}]}}}' ```
+# 2. Deploy backend from backend/ subdirectory
+ink deploy mono-api --repo my-monorepo --root-dir backend --port 8080
 
-The `rootDirectory` sets the build context. The `publishDirectory` tells railpack to build the app then serve the output as static files via nginx.
+# 3. Deploy frontend from frontend/ subdirectory
+ink deploy mono-web --repo my-monorepo --root-dir frontend --publish-dir dist \
+  --env VITE_API_URL=https://mono-api.ml.ink
+```
 
 ### Deploy from GitHub
 
-Use GitHub repos instead of Ink's internal git. Requires `hasGitHubOAuth: true` and `hasGitHubApp: true` in `accountStatus`.
+Requires GitHub OAuth and App connected at https://ml.ink.
 
 ```bash
-# Deploy directly from a GitHub repo
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "mutation($input: CreateServiceInput!) { serviceCreate(input: $input) { serviceId name status } }", "variables": {"input": {"name": "my-app", "repo": "username/repo-name", "host": "github", "port": 3000}}}' ```
+ink deploy my-app --repo username/repo-name --host github --port 3000
+```
 
 Pushes to the GitHub repo automatically trigger redeployment via webhook.
 
 ### Add a custom domain
 
-Requires a DNS zone delegated to Ink first (done via the web dashboard at https://ml.ink/dns).
+Requires a DNS zone delegated to Ink first (via https://ml.ink/dns).
 
 ```bash
-# 1. Check the zone is active
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "{ dnsListZones { zone status } }"}' 
-# 2. Attach the domain to a service (auto-creates DNS records and TLS cert)
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "mutation($name: String!, $domain: String!) { domainAdd(name: $name, domain: $domain) { domain status message } }", "variables": {"name": "my-app", "domain": "app.example.com"}}' ```
+ink dns zones                                     # verify zone is active
+ink domains add my-app app.example.com            # auto-creates DNS + TLS
+```
 
 ### Update a service (scale, env vars, config)
 
-Use `serviceUpdate` only for configuration changes. Pushing code auto-redeploys -- you don't need `serviceUpdate` for that.
+Use `ink redeploy` for configuration changes. Pushing code auto-redeploys -- you don't need to call redeploy for that.
 
 ```bash
 # Scale up memory and CPU
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "mutation($input: UpdateServiceInput!) { serviceUpdate(input: $input) { serviceId status } }", "variables": {"input": {"name": "my-app", "memory": "1Gi", "vcpus": "1"}}}' 
-# Update env vars (replaces all existing vars)
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "mutation($input: UpdateServiceInput!) { serviceUpdate(input: $input) { serviceId status } }", "variables": {"input": {"name": "my-app", "envVars": [{"key": "NODE_ENV", "value": "production"}, {"key": "API_KEY", "value": "sk-xxx"}]}}}' ```
+ink redeploy my-app --memory 1Gi --vcpu 1
+
+# Update env vars
+ink redeploy my-app --env NODE_ENV=production --env API_KEY=sk-xxx
+```
 
 ### Debug a failing deployment
 
 ```bash
-# Check status and error message
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "query($id: ID!) { serviceGet(id: $id) { name status errorMessage fqdn } }", "variables": {"id": "SERVICE_ID"}}' 
-# Check the action log for recent operations
-curl -s https://api.ml.ink/graphql \
-  -H "Authorization: Bearer $INK_API_KEY" \
-  -d '{"query": "{ actionLogList(limit: 10) { nodes { action entityType entityId source createdAt } } }"}' ```
+ink status my-app                                 # check status and error
+ink logs my-app                                   # check runtime logs
+```
 
-For build and runtime logs, use the MCP tool `service_get` with `deploy_log_lines` and `runtime_log_lines` parameters -- logs are not yet available via the GraphQL API.
+## Service Configuration
 
-## Quick Reference
-
-These are the most common individual operations. For full field details, check the schema (`curl -s https://api.ml.ink/schema`).
-
-| Operation | Query/Mutation |
-|---|---|
-| Account status | `{ accountStatus { id email hasGitHubOAuth hasGitHubApp defaultWorkspace depositBalance subscriptionTier } }` |
-| List services | `{ serviceList { nodes { name status fqdn } totalCount } }` |
-| Get service | `serviceGet(id: ID!) { ... }` |
-| Create service | `serviceCreate(input: CreateServiceInput!) { serviceId name status }` |
-| Update service | `serviceUpdate(input: UpdateServiceInput!) { serviceId status }` |
-| Delete service | `serviceDelete(name: "...") { message }` |
-| List projects | `{ projectList { nodes { name slug } } }` |
-| Delete project | `projectDelete(slug: "...") ` |
-| Create database | `resourceCreate(input: { name: "..." }) { databaseUrl authToken }` |
-| List databases | `{ resourceList { nodes { name status } } }` |
-| Get database | `resourceGet(id: ID!) { ... }` |
-| Delete database | `resourceDelete(name: "...") { message }` |
-| Create repo | `repoCreate(input: { name: "..." }) { repo gitRemote }` |
-| Get push token | `repoGetToken(input: { name: "..." }) { gitRemote expiresAt }` |
-| List DNS zones | `{ dnsListZones { zone status } }` |
-| List DNS records | `dnsListRecords(zone: "...") { name type content }` |
-| Add DNS record | `dnsAddRecord(zone: "...", name: "...", type: "...", content: "...") { id }` |
-| Delete DNS record | `dnsDeleteRecord(zone: "...", recordId: ID!)` |
-| Add custom domain | `domainAdd(name: "svc", domain: "app.example.com") { status }` |
-| Remove custom domain | `domainRemove(name: "svc") { message }` |
-| List workspaces | `{ workspaceList { name slug role } }` |
-| Create workspace | `workspaceCreate(name: "...", slug: "...") { id }` |
-| Send chat | `chatSend(workspaceSlug: "...", content: "...") { seq }` |
-| Read chat | `chatRead(workspaceSlug: "...") { messages { senderName content } }` |
-| Action log | `{ actionLogList(limit: 20) { nodes { action entityType createdAt } } }` |
+| Option | Values | Default |
+|--------|--------|---------|
+| Memory | 256Mi, 512Mi, 1Gi, 2Gi, 4Gi, 8Gi | 256Mi |
+| vCPUs | 0.25, 0.5, 1, 2, 4 | 0.25 |
+| Region | eu-central-1 | eu-central-1 |
+| Branch | any git branch | main |
 
 ## Guidelines
 
-- **Start with `accountStatus`** to understand the user's setup: git provider availability, billing state, and default workspace.
-- **Fetch the schema** with `curl -s https://api.ml.ink/schema` before making API calls. It has the latest fields, types, and defaults.
-- **Choose the right git provider.** Use Ink internal git (default) unless `accountStatus` shows both `hasGitHubOAuth` and `hasGitHubApp` are true.
-- **Pushing code auto-redeploys.** After `git push`, just poll `serviceGet` to track progress. Only use `serviceUpdate` for config changes (memory, env vars, etc.).
-- **Check serviceList before deploying** to see if a service already exists. Use `serviceCreate` for new services and `serviceUpdate` to modify existing ones.
-- **Poll serviceGet after create/update** to track deployment progress. Status transitions: queued -> building -> deploying -> active (or failed).
-- **Env vars on update replace all existing vars.** Include all vars you want to keep, not just the new ones.
-- **Service-to-service calls** use the `internalUrl` (e.g. `http://svc.ns.svc.cluster.local:port`) instead of the public FQDN. Lower latency, no TLS overhead.
+- **Install the CLI first.** If `command -v ink` fails, install with `npm install -g @mldotink/cli`.
+- **Check `ink list` before deploying** to see if a service already exists. Use `ink deploy` for new services and `ink redeploy` for existing ones.
+- **Pushing code auto-redeploys.** After `git push`, just poll `ink status` to track progress.
+- **Use `--json` flag** for machine-readable output when you need to parse results.
 - **Memory:** 256Mi (default, fine for most apps), 512Mi, 1Gi, 2Gi, 4Gi, 8Gi.
 - **vCPUs:** 0.25 (default), 0.5, 1, 2, 4.
 - When deploying, confirm the repo URL and branch with the user first.
 - For environment variables containing secrets, ask the user rather than guessing values.
-- Show the service URL (`fqdn`) after successful deployment.
-- Zone delegation (for custom domains) must be set up by the user at https://ml.ink/dns before you can use `domainAdd`.
+- Show the service URL after successful deployment.
+- Zone delegation (for custom domains) must be set up by the user at https://ml.ink/dns before you can use `ink domains add`.
+

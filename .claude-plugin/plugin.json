@@ -1,7 +1,7 @@
 {
   "name": "ink",
-  "description": "Deploy and manage cloud services on Ink (ml.ink) using the GraphQL API",
-  "version": "1.0.0",
+  "description": "Deploy and manage cloud services on Ink (ml.ink) using the Ink CLI",
+  "version": "2.0.0",
   "author": { "name": "Ink", "url": "https://ml.ink" },
   "repository": "https://github.com/mldotink/ink-skill"
 }
