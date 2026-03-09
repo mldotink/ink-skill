@@ -207,8 +207,8 @@ ink logs my-app                                   # check runtime logs
 
 | Option | Values | Default |
 |--------|--------|---------|
-| Memory | 256Mi, 512Mi, 1Gi, 2Gi, 4Gi, 8Gi | 256Mi |
-| vCPUs | 0.25, 0.5, 1, 2, 4 | 0.25 |
+| Memory | 128Mi, 256Mi, 512Mi, 1024Mi, 2048Mi, 4096Mi | 256Mi |
+| vCPUs | 0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 1, 2, 3, 4 | 0.25 |
 | Region | eu-central-1 | eu-central-1 |
 | Branch | any git branch | main |
 
@@ -218,8 +218,8 @@ ink logs my-app                                   # check runtime logs
 - **Check `ink list` before deploying** to see if a service already exists. Use `ink deploy` for new services and `ink redeploy` for existing ones.
 - **Pushing code auto-redeploys.** After `git push`, just poll `ink status` to track progress.
 - **Use `--json` flag** for machine-readable output when you need to parse results.
-- **Memory:** 256Mi (default, fine for most apps), 512Mi, 1Gi, 2Gi, 4Gi, 8Gi.
-- **vCPUs:** 0.25 (default), 0.5, 1, 2, 4.
+- **Memory:** 128Mi, 256Mi (default), 512Mi, 1024Mi, 2048Mi, 4096Mi.
+- **vCPUs:** 0.1, 0.2, 0.25 (default), 0.3, 0.4, 0.5, 1, 2, 3, 4.
 - When deploying, confirm the repo URL and branch with the user first.
 - For environment variables containing secrets, ask the user rather than guessing values.
 - Show the service URL after successful deployment.
