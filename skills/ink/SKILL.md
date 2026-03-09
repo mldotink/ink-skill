@@ -72,25 +72,41 @@ Both git providers trigger automatic redeployment on push. After pushing code, j
 
 Use `ink secrets` to manage env vars on running services. Changes are merged server-side and trigger an automatic redeploy.
 
-```bash
-ink secrets set my-app KEY=value KEY2=value2     # set/update vars (merges with existing)
-ink secrets import my-app --file .env            # import from file (merges)
-cat .env | ink secrets import my-app             # import from stdin
-ink secrets list my-app                          # list current vars
-ink secrets unset my-app SECRET_KEY              # remove a single var
-ink secrets delete my-app KEY1 KEY2              # remove multiple vars
-ink secrets set my-app KEY=val --replace         # replace ALL vars (removes unspecified)
-```
-
-For initial deploy, use `--env-file` to pass secrets without leaking them to shell history:
+**For sensitive values** (API keys, tokens, credentials), use `ink secrets import` to avoid leaking to shell history:
 
 ```bash
-cat > .env.deploy <<EOF
+# From file
+ink secrets import my-app --file .env
+
+# From stdin (preferred for agents)
+cat > .env.secrets <<EOF
 DATABASE_URL=libsql://my-db-myworkspace.turso.io
 DATABASE_AUTH_TOKEN=eyJhbG...
+API_KEY=sk_live_xxx
 EOF
-ink deploy my-app --repo my-app --port 3000 --env-file .env.deploy
-rm .env.deploy
+ink secrets import my-app --file .env.secrets
+rm .env.secrets
+```
+
+**For non-sensitive values**, `ink secrets set` is fine:
+
+```bash
+ink secrets set my-app NODE_ENV=production LOG_LEVEL=info
+```
+
+**Other operations:**
+
+```bash
+ink secrets list my-app                          # list current vars
+ink secrets unset my-app OLD_KEY                 # remove a single var
+ink secrets delete my-app KEY1 KEY2              # remove multiple vars
+ink secrets import my-app --file .env --replace  # replace ALL vars (removes unspecified)
+```
+
+For initial deploy, use `--env-file` to pass secrets:
+
+```bash
+ink deploy my-app --repo my-app --port 3000 --env-file .env
 ```
 
 Use `--env` only for non-sensitive values like `NODE_ENV=production`.
@@ -180,9 +196,12 @@ ink db create my-db --json
 ink deploy my-app --repo my-app --port 3000
 
 # 3. Set database credentials (merges with existing vars, triggers redeploy)
-ink secrets set my-app \
-  DATABASE_URL=<databaseUrl from step 1> \
-  DATABASE_AUTH_TOKEN=<authToken from step 1>
+cat > .env.secrets <<EOF
+DATABASE_URL=<databaseUrl from step 1>
+DATABASE_AUTH_TOKEN=<authToken from step 1>
+EOF
+ink secrets import my-app --file .env.secrets
+rm .env.secrets
 ```
 
 ### Deploy from a monorepo
@@ -225,8 +244,11 @@ ink domains add my-app app.example.com            # auto-creates DNS + TLS
 Use `ink secrets` for env var changes. Use `ink redeploy` for resource/config changes. Pushing code auto-redeploys -- you don't need to call redeploy for that.
 
 ```bash
-# Add or update env vars (merges, triggers redeploy)
-ink secrets set my-app NODE_ENV=production API_KEY=sk_live_xxx
+# Add or update non-sensitive env vars
+ink secrets set my-app NODE_ENV=production LOG_LEVEL=info
+
+# Add secrets via file (avoids shell history exposure)
+ink secrets import my-app --file .env.secrets
 
 # Scale up memory and CPU
 ink redeploy my-app --memory 1Gi --vcpu 1
@@ -257,8 +279,8 @@ ink logs my-app                                   # check runtime logs
 - **Memory:** 128Mi, 256Mi (default), 512Mi, 1024Mi, 2048Mi, 4096Mi.
 - **vCPUs:** 0.1, 0.2, 0.25 (default), 0.3, 0.4, 0.5, 1, 2, 3, 4.
 - When deploying, confirm the repo URL and branch with the user first.
-- **Use `ink secrets set` for env var changes** on running services. It merges server-side and triggers a redeploy. Never use `ink redeploy --env` to update vars -- it replaces all vars and leaks values to shell history.
-- **For initial deploy secrets**, use `--env-file` with a temp file. Delete the file after deploy. Use `--env` only for non-sensitive values like `NODE_ENV`.
+- **Use `ink secrets import` for sensitive values** (credentials, tokens, API keys). Write to a temp file, import, delete the file. Never pass secrets as CLI arguments — they leak to shell history and process listings.
+- **Use `ink secrets set` only for non-sensitive vars** like `NODE_ENV=production`. Never use `ink redeploy --env` to update vars — it replaces all vars.
 - Never hardcode or guess secret values. Secrets should come from the user, from `ink db token`, or from other Ink CLI output.
 - Show the service URL after successful deployment.
 - Zone delegation (for custom domains) must be set up by the user at https://ml.ink/dns before you can use `ink domains add`.
