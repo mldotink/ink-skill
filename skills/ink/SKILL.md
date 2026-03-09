@@ -193,7 +193,7 @@ Use `ink redeploy` for configuration changes. Pushing code auto-redeploys -- you
 ink redeploy my-app --memory 1Gi --vcpu 1
 
 # Update env vars
-ink redeploy my-app --env NODE_ENV=production --env API_KEY=sk-xxx
+ink redeploy my-app --env NODE_ENV=production --env PORT=8080
 ```
 
 ### Debug a failing deployment
@@ -221,7 +221,7 @@ ink logs my-app                                   # check runtime logs
 - **Memory:** 128Mi, 256Mi (default), 512Mi, 1024Mi, 2048Mi, 4096Mi.
 - **vCPUs:** 0.1, 0.2, 0.25 (default), 0.3, 0.4, 0.5, 1, 2, 3, 4.
 - When deploying, confirm the repo URL and branch with the user first.
-- For environment variables containing secrets, ask the user rather than guessing values.
+- Never hardcode or guess secret values. Let the user provide secrets via `ink login` or environment variables outside the agent's scope.
 - Show the service URL after successful deployment.
 - Zone delegation (for custom domains) must be set up by the user at https://ml.ink/dns before you can use `ink domains add`.
 
