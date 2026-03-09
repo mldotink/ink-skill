@@ -12,10 +12,43 @@ metadata:
 
 Deploy and manage cloud services on [Ink](https://ml.ink) using the GraphQL API.
 
-## Setup
+## Authentication
 
-Set the `INK_API_KEY` environment variable with your Ink API key (starts with `dk_live_`).
-Get one from the [Ink dashboard](https://ml.ink/onboarding) or under Settings > Agent Keys.
+Before the first API call, resolve the API key by checking these locations in order:
+
+1. **`INK_API_KEY` environment variable** -- if set, use it
+2. **`.ink` file in the current directory** -- per-project key
+3. **`~/.config/ink/credentials`** -- global default
+
+Each location is a plain text file containing just the key (one line, no other formatting):
+```
+dk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+**If no valid key is found:**
+1. Ask the user to create one at https://ml.ink/account/api-keys
+2. Once they paste it, validate it starts with `dk_live_`
+3. Ask: "Save globally or just for this project?"
+   - **Globally:** write to `~/.config/ink/credentials`
+   - **This project:** write to `.ink` in the current directory and add `.ink` to `.gitignore`
+4. Save it:
+
+```bash
+# Global
+mkdir -p ~/.config/ink
+echo "dk_live_..." > ~/.config/ink/credentials
+
+# Per-project
+echo "dk_live_..." > .ink
+grep -qxF '.ink' .gitignore 2>/dev/null || echo '.ink' >> .gitignore
+```
+
+After resolving the key, export it for the session:
+```bash
+export INK_API_KEY=$(cat <resolved_file>)
+```
+
+**On 401 Unauthorized:** ask the user for a new key and overwrite the stored file.
 
 ## API
 
