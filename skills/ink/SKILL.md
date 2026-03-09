@@ -6,7 +6,7 @@ description: >
   workspaces, and monitor deployments. Use this skill whenever the user mentions
   Ink, ml.ink, deployments, services, databases, or cloud infrastructure on Ink,
   even if they don't say "Ink" explicitly.
-allowed-tools: Bash(ink:*), Bash(which:*), Bash(command:*), Bash(npm:*), Bash(npx:*), Bash(brew:*), Bash(git:*)
+allowed-tools: Bash(ink:*), Bash(which:*), Bash(command:*), Bash(npm:*), Bash(npx:*), Bash(brew:*), Bash(git:*), Write
 ---
 
 # Use Ink
@@ -67,6 +67,23 @@ ink deploy my-app --repo username/repo-name --host github --port 3000
 ### Auto-Redeploy
 
 Both git providers trigger automatic redeployment on push. After pushing code, just poll `ink status <name>` to track progress -- you do not need to redeploy manually.
+
+## Passing Secrets
+
+Never pass secrets as `--env` flags (they leak into shell history and process listings). Instead, write a `.env` file and use `--env-file`:
+
+```bash
+# Write secrets to a temp .env file, then pass via --env-file
+cat > .env.deploy <<EOF
+DATABASE_URL=libsql://my-db-myworkspace.turso.io
+DATABASE_AUTH_TOKEN=eyJhbG...
+SECRET_KEY=supersecret
+EOF
+ink deploy my-app --env-file .env.deploy --port 3000
+rm .env.deploy
+```
+
+Use `--env` only for non-sensitive values like `NODE_ENV=production` or `PORT=8080`.
 
 ## Common Operations
 
@@ -140,13 +157,18 @@ ink deploy my-frontend --repo my-frontend --port 3000 \
 
 ```bash
 # 1. Create database
-ink db create my-db
+ink db create my-db --json
 # Save databaseUrl and authToken from output
 
-# 2. Deploy service with database credentials
-ink deploy my-app --repo my-app --port 3000 \
-  --env DATABASE_URL=<databaseUrl> \
-  --env DATABASE_AUTH_TOKEN=<authToken>
+# 2. Write credentials to env file
+cat > .env.deploy <<EOF
+DATABASE_URL=<databaseUrl from step 1>
+DATABASE_AUTH_TOKEN=<authToken from step 1>
+EOF
+
+# 3. Deploy service with database credentials
+ink deploy my-app --repo my-app --port 3000 --env-file .env.deploy
+rm .env.deploy
 ```
 
 ### Deploy from a monorepo
@@ -160,7 +182,7 @@ git push ink main
 # 2. Deploy backend from backend/ subdirectory
 ink deploy mono-api --repo my-monorepo --root-dir backend --port 8080
 
-# 3. Deploy frontend from frontend/ subdirectory
+# 3. Deploy frontend from frontend/ subdirectory (public URL is not a secret)
 ink deploy mono-web --repo my-monorepo --root-dir frontend --publish-dir dist \
   --env VITE_API_URL=https://mono-api.ml.ink
 ```
@@ -221,7 +243,8 @@ ink logs my-app                                   # check runtime logs
 - **Memory:** 128Mi, 256Mi (default), 512Mi, 1024Mi, 2048Mi, 4096Mi.
 - **vCPUs:** 0.1, 0.2, 0.25 (default), 0.3, 0.4, 0.5, 1, 2, 3, 4.
 - When deploying, confirm the repo URL and branch with the user first.
-- Never hardcode or guess secret values. Let the user provide secrets via `ink login` or environment variables outside the agent's scope.
+- **Never pass secrets via `--env` flags.** Write secrets to a temporary `.env` file and use `--env-file`. Delete the file after deploy. Use `--env` only for non-sensitive values like `NODE_ENV` or `PORT`.
+- Never hardcode or guess secret values. Secrets should come from the user, from `ink db token`, or from other Ink CLI output.
 - Show the service URL after successful deployment.
 - Zone delegation (for custom domains) must be set up by the user at https://ml.ink/dns before you can use `ink domains add`.
 
