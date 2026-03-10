@@ -204,6 +204,26 @@ ink secrets import my-app --file .env.secrets
 rm .env.secrets
 ```
 
+### Deploy a static site or SPA
+
+For frontend apps (React, Vue, Vite, Next.js static export, etc.) that build to a directory of static files. No `--port` needed — Ink serves via nginx automatically.
+
+```bash
+ink repos create my-site
+git remote add ink <url>
+git push ink main
+ink deploy my-site --repo my-site --publish-dir dist
+```
+
+Use `--publish-dir` to specify where the build output goes (`dist`, `build`, `out`, etc.). Ink runs the build step then serves the result as static files.
+
+For SPAs with an API backend, pass the API URL as a build-time env var:
+
+```bash
+ink deploy my-site --repo my-site --publish-dir dist \
+  --env VITE_API_URL=https://my-api.ml.ink
+```
+
 ### Deploy from a monorepo
 
 ```bash
