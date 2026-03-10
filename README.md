@@ -4,20 +4,45 @@ Agent skill for [Ink](https://ml.ink) — a cloud platform designed for AI agent
 
 ## Installation
 
+### Claude Code
+
 ```bash
 npx skills add mldotink/ink-skill
 ```
 
-### Claude Code plugin marketplace
+Or via plugin marketplace:
 
 ```
 /plugin install ink@ink-skill
 ```
 
-### Manual
+Or manually:
 
 ```bash
 claude install-plugin mldotink/ink-skill
+```
+
+### OpenClaw
+
+Copy the skill to your managed skills directory:
+
+```bash
+git clone https://github.com/mldotink/ink-skill /tmp/ink-skill-install
+mkdir -p ~/.openclaw/skills
+cp -r /tmp/ink-skill-install/skills/ink ~/.openclaw/skills/ink
+rm -rf /tmp/ink-skill-install
+```
+
+Or add the repo as an extra skills directory in `~/.openclaw/openclaw.json`:
+
+```json
+{
+  "skills": {
+    "load": {
+      "extraDirs": ["/path/to/ink-skill/skills"]
+    }
+  }
+}
 ```
 
 ## Setup
