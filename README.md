@@ -48,7 +48,13 @@ Or add the repo as an extra skills directory in `~/.openclaw/openclaw.json`:
 ## Setup
 
 1. Get an API key from the [Ink dashboard](https://ml.ink/onboarding) or under Settings > Agent Keys
-2. Set the environment variable:
+2. Install the Ink CLI if you do not already have it:
+   ```bash
+   npm install -g @mldotink/cli
+   # or
+   brew install mldotink/tap/ink
+   ```
+3. Set the environment variable:
    ```bash
    export INK_API_KEY=dk_live_your_key_here
    ```
@@ -61,7 +67,7 @@ This repo ships one installable skill:
 
 - [`ink`](skills/ink/SKILL.md) — Deploy apps, manage services, databases, DNS, custom domains, and workspaces on Ink
 
-The skill uses the [Ink CLI](https://github.com/mldotink/cli) (`@mldotink/cli`) and will prompt to install it if missing.
+The skill uses the [Ink CLI](https://github.com/mldotink/cli) (`@mldotink/cli`). If you use the hosted installer script, it now prints CLI install commands when `ink` is missing.
 
 ## Usage
 
