@@ -114,7 +114,7 @@ Use `--env` only for non-sensitive values like `NODE_ENV=production`.
 ## Common Operations
 
 ```bash
-ink list                                          # list all services
+ink services                                      # list all services
 ink status my-app                                 # service details
 ink logs my-app                                   # tail logs
 ink deploy my-app --repo my-app --port 3000       # deploy new service
@@ -273,7 +273,7 @@ ink logs my-app                                   # check runtime logs
 ## Guidelines
 
 - **Install the CLI first.** If `command -v ink` fails, install with `npm install -g @mldotink/cli`.
-- **Check `ink list` before deploying** to see if a service already exists. Use `ink deploy` for new services and `ink redeploy` for existing ones.
+- **Check `ink services` before deploying** to see if a service already exists. Use `ink deploy` for new services and `ink redeploy` for existing ones.
 - **Pushing code auto-redeploys.** After `git push`, just poll `ink status` to track progress.
 - **Use `--json` flag** for machine-readable output when you need to parse results.
 - **Memory:** 128Mi, 256Mi (default), 512Mi, 1024Mi, 2048Mi, 4096Mi.
