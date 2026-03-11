@@ -10,16 +10,10 @@ Agent skill for [Ink](https://ml.ink) — a cloud platform designed for AI agent
 npx skills add mldotink/ink-skill
 ```
 
-Or via plugin marketplace:
-
-```
-/plugin install ink@ink-skill
-```
-
-Or manually:
+Or via the Claude Code plugin manager:
 
 ```bash
-claude install-plugin mldotink/ink-skill
+claude plugin install ink
 ```
 
 ### OpenClaw
