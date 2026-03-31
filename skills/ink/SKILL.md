@@ -330,4 +330,12 @@ ink logs my-app --build                           # check build logs
 - Never hardcode or guess secret values. Secrets should come from the user, from template deploy outputs, or from other Ink CLI output.
 - Show the service URL after successful deployment.
 - Zone delegation (for custom domains) must be set up by the user at https://ml.ink/dns before you can use `ink domains add`.
+- **Track what you deploy.** After creating repos, services, or templates, record the workspace, project, service names, and endpoints in the project's `CLAUDE.md` (or `AGENTS.md` if it exists). This lets future agent sessions find and manage deployed resources without asking the user. Example:
+  ```markdown
+  ## Ink Deployment
+  - Workspace: my-team
+  - Project: backend
+  - Services: my-api (https://my-api.ml.ink), my-worker
+  - Git remote: ink (git.ml.ink/my-team/my-api)
+  ```
 
