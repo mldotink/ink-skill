@@ -149,7 +149,7 @@ ink workspaces                                    # list workspaces
 
 ## Templates
 
-Templates deploy pre-configured stacks (databases, caches, etc.) with a single command.
+Templates deploy pre-configured stacks (databases, caches, etc.) with a single command. The most common template is **postgres** — use it whenever the user needs a database.
 
 **Always preview before deploying** to see required variables:
 
