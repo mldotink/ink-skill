@@ -116,7 +116,8 @@ Use `--env` only for non-sensitive values like `NODE_ENV=production`.
 ```bash
 ink services                                      # list all services
 ink status my-app                                 # service details
-ink logs my-app                                   # tail logs
+ink logs my-app                                   # runtime logs
+ink logs my-app --build                           # build logs
 ink deploy my-app --repo my-app --port 3000       # deploy new service
 ink redeploy my-app                               # redeploy existing
 ink redeploy my-app --memory 1Gi --vcpu 1         # redeploy with new config
@@ -303,6 +304,7 @@ ink redeploy my-app --memory 1Gi --vcpu 1
 ```bash
 ink status my-app                                 # check status and error
 ink logs my-app                                   # check runtime logs
+ink logs my-app --build                           # check build logs
 ```
 
 ## Service Configuration
