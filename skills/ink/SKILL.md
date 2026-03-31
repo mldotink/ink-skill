@@ -2,10 +2,10 @@
 name: ink
 description: >
   Deploy and manage cloud services on Ink (ml.ink): create projects, deploy
-  services, provision databases, manage DNS and custom domains, configure
-  workspaces, and monitor deployments. Use this skill whenever the user mentions
-  Ink, ml.ink, deployments, services, databases, or cloud infrastructure on Ink,
-  even if they don't say "Ink" explicitly.
+  services, deploy templates (databases, caches), manage DNS and custom domains,
+  configure workspaces, and monitor deployments. Use this skill whenever the user
+  mentions Ink, ml.ink, deployments, services, databases, templates, or cloud
+  infrastructure on Ink, even if they don't say "Ink" explicitly.
 allowed-tools: Bash(ink:*), Bash(which:*), Bash(command:*), Bash(npm:*), Bash(npx:*), Bash(brew:*), Bash(git:*), Write
 ---
 
@@ -122,10 +122,9 @@ ink redeploy my-app                               # redeploy existing
 ink redeploy my-app --memory 1Gi --vcpu 1         # redeploy with new config
 ink delete my-app                                 # delete service
 
-ink db create my-db                               # create database
-ink db list                                       # list databases
-ink db token my-db                                # get connection credentials
-ink db delete my-db                               # delete database
+ink template                                      # list available templates
+ink template info postgres                        # preview variables & services
+ink template deploy postgres --name my-pg         # deploy a template stack
 
 ink secrets set my-app KEY=value                  # set env vars (merges)
 ink secrets import my-app --file .env             # import from file
@@ -147,6 +146,21 @@ ink repos token my-app                            # get push token
 ink projects list                                 # list projects
 ink workspaces                                    # list workspaces
 ```
+
+## Templates
+
+Templates deploy pre-configured stacks (databases, caches, etc.) with a single command.
+
+**Always preview before deploying** to see required variables:
+
+```bash
+ink template                                      # list all templates
+ink template info postgres                        # show variables, services, and example commands
+ink template deploy postgres --name my-pg         # deploy (prompts for missing required vars)
+ink template deploy postgres --name my-pg --var db_name=myapp  # pass variables inline
+```
+
+Use `--json` to get machine-readable output with connection credentials from `outputs`.
 
 ## Deployment Flows
 
@@ -187,21 +201,31 @@ ink deploy my-frontend --repo my-frontend --port 3000 \
 
 ### Deploy with a database
 
-```bash
-# 1. Create database
-ink db create my-db --json
-# Save databaseUrl and authToken from output
+Use templates to provision databases. Always run `ink template info <slug>` first to see required variables.
 
-# 2. Deploy service
+```bash
+# 1. Preview the template to see variables and services
+ink template info postgres --json
+
+# 2. Deploy the database template (returns connection credentials in outputs)
+ink template deploy postgres --name my-pg --json
+# Save the outputs (DATABASE_URL, etc.) from the response
+
+# 3. Deploy your service
 ink deploy my-app --repo my-app --port 3000
 
-# 3. Set database credentials (merges with existing vars, triggers redeploy)
+# 4. Wire credentials to your service
 cat > .env.secrets <<EOF
-DATABASE_URL=<databaseUrl from step 1>
-DATABASE_AUTH_TOKEN=<authToken from step 1>
+DATABASE_URL=<DATABASE_URL from step 2>
 EOF
 ink secrets import my-app --file .env.secrets
 rm .env.secrets
+```
+
+You can pass template variables with `--var KEY=VALUE`:
+
+```bash
+ink template deploy postgres --name my-pg --var db_name=myapp --var storage_gi=20
 ```
 
 ### Deploy a static site or SPA
@@ -301,7 +325,7 @@ ink logs my-app                                   # check runtime logs
 - When deploying, confirm the repo URL and branch with the user first.
 - **Use `ink secrets import` for sensitive values** (credentials, tokens, API keys). Write to a temp file, import, delete the file. Never pass secrets as CLI arguments — they leak to shell history and process listings.
 - **Use `ink secrets set` only for non-sensitive vars** like `NODE_ENV=production`. Never use `ink redeploy --env` to update vars — it replaces all vars.
-- Never hardcode or guess secret values. Secrets should come from the user, from `ink db token`, or from other Ink CLI output.
+- Never hardcode or guess secret values. Secrets should come from the user, from template deploy outputs, or from other Ink CLI output.
 - Show the service URL after successful deployment.
 - Zone delegation (for custom domains) must be set up by the user at https://ml.ink/dns before you can use `ink domains add`.
 
