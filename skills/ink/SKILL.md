@@ -19,7 +19,7 @@ Before any operation, verify the CLI is installed and authenticated:
 
 ```bash
 command -v ink                    # CLI installed
-ink whoami                        # authenticated
+ink whoami --json                 # authenticated; shows configured workspace/project
 ```
 
 If the CLI is missing, install it:
@@ -40,7 +40,7 @@ Ink CLI resolves context in this order (highest priority first):
 3. **Local config** -- `.ink` file in current directory
 4. **Global config** -- `~/.config/ink/config`
 
-Use `ink whoami` to check current auth. Use `--json` on any command for machine-readable output.
+Use `ink whoami --json` to check current auth and inspect configured workspace/project. Treat that config as a hint, not proof it is valid: before deploying, run a scoped read such as `ink projects list --workspace <workspace> --json` or `ink services --workspace <workspace> --project <project> --json`. Prefer explicit `--workspace` and `--project` flags in automation when the target is known. Use `--json` on any command for machine-readable output.
 
 ## Git: Two Options
 
@@ -189,7 +189,7 @@ git remote add ink <url>
 git push ink main
 ink deploy my-api --repo my-api --port 8080
 
-# 2. Wait for backend to be active
+# 2. Wait for backend to be active and copy the returned endpoint URL
 ink status my-api
 
 # 3. Deploy frontend with backend URL
@@ -197,7 +197,7 @@ ink repos create my-frontend
 git remote add ink-frontend <url>
 git push ink-frontend main
 ink deploy my-frontend --repo my-frontend --port 3000 \
-  --env VITE_API_URL=https://my-api.ml.ink
+  --env VITE_API_URL=<backend-url-from-ink-status>
 ```
 
 ### Deploy with a database
@@ -231,7 +231,22 @@ ink template deploy postgres --name my-pg --var db_name=myapp --var storage_gi=2
 
 ### Deploy a static site or SPA
 
-For frontend apps (React, Vue, Vite, Next.js static export, etc.) that build to a directory of static files. No `--port` needed — Ink serves via nginx automatically.
+For static files already present in the repo, use the `static` buildpack. No `--port` needed — Ink serves via nginx automatically.
+
+```bash
+ink repos create my-site
+git remote add ink <url>
+git push ink main
+ink deploy my-site --repo my-site --buildpack static
+```
+
+For prebuilt static files in a subdirectory, use `static` with `--publish-dir`:
+
+```bash
+ink deploy my-site --repo my-site --buildpack static --publish-dir dist
+```
+
+For frontend apps (React, Vue, Vite, Next.js static export, etc.) that need Ink to run a build first, leave the buildpack as railpack and specify the build output directory:
 
 ```bash
 ink repos create my-site
@@ -240,13 +255,13 @@ git push ink main
 ink deploy my-site --repo my-site --publish-dir dist
 ```
 
-Use `--publish-dir` to specify where the build output goes (`dist`, `build`, `out`, etc.). Ink runs the build step then serves the result as static files.
+Use `--publish-dir` to specify where the built or prebuilt files are (`dist`, `build`, `out`, etc.).
 
 For SPAs with an API backend, pass the API URL as a build-time env var:
 
 ```bash
 ink deploy my-site --repo my-site --publish-dir dist \
-  --env VITE_API_URL=https://my-api.ml.ink
+  --env VITE_API_URL=<backend-url-from-ink-status>
 ```
 
 ### Deploy from a monorepo
@@ -262,7 +277,7 @@ ink deploy mono-api --repo my-monorepo --root-dir backend --port 8080
 
 # 3. Deploy frontend from frontend/ subdirectory (public URL is not a secret)
 ink deploy mono-web --repo my-monorepo --root-dir frontend --publish-dir dist \
-  --env VITE_API_URL=https://mono-api.ml.ink
+  --env VITE_API_URL=<backend-url-from-ink-status>
 ```
 
 ### Deploy from GitHub
@@ -319,6 +334,8 @@ ink logs my-app --build                           # check build logs
 ## Guidelines
 
 - **Install the CLI first.** If `command -v ink` fails, install with `npm install -g @mldotink/cli`.
+- **Start with `ink whoami --json`.** Confirm auth and inspect configured workspace/project before using any mutating command.
+- **Validate context before deploying.** Use `ink projects list --workspace <workspace> --json` or `ink services --workspace <workspace> --project <project> --json`; stale local/global config can point at a workspace or project that no longer exists.
 - **Check `ink services` before deploying** to see if a service already exists. Use `ink deploy` for new services and `ink redeploy` for existing ones.
 - **Pushing code auto-redeploys.** After `git push`, just poll `ink status` to track progress.
 - **Use `--json` flag** for machine-readable output when you need to parse results.
@@ -328,14 +345,13 @@ ink logs my-app --build                           # check build logs
 - **Use `ink secrets import` for sensitive values** (credentials, tokens, API keys). Write to a temp file, import, delete the file. Never pass secrets as CLI arguments — they leak to shell history and process listings.
 - **Use `ink secrets set` only for non-sensitive vars** like `NODE_ENV=production`. Never use `ink redeploy --env` to update vars — it replaces all vars.
 - Never hardcode or guess secret values. Secrets should come from the user, from template deploy outputs, or from other Ink CLI output.
-- Show the service URL after successful deployment.
+- Show the service URL after successful deployment. Do not construct or guess managed app URL formats; use the endpoint returned by `ink deploy`, `ink status`, or `ink services`.
 - Zone delegation (for custom domains) must be set up by the user at https://ml.ink/dns before you can use `ink domains add`.
 - **Track what you deploy.** After creating repos, services, or templates, record the workspace, project, service names, and endpoints in the project's `CLAUDE.md` (or `AGENTS.md` if it exists). This lets future agent sessions find and manage deployed resources without asking the user. Example:
   ```markdown
   ## Ink Deployment
   - Workspace: my-team
   - Project: backend
-  - Services: my-api (https://my-api.ml.ink), my-worker
+  - Services: my-api (<url-from-ink-status>), my-worker
   - Git remote: ink (git.ml.ink/my-team/my-api)
   ```
-
