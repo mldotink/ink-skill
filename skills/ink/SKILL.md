@@ -1,11 +1,6 @@
 ---
 name: ink
-description: >
-  Deploy and manage cloud services on Ink (ml.ink): create projects, deploy
-  services, deploy templates (databases, caches), manage DNS and custom domains,
-  configure workspaces, and monitor deployments. Use this skill whenever the user
-  mentions Ink, ml.ink, deployments, services, databases, templates, or cloud
-  infrastructure on Ink, even if they don't say "Ink" explicitly.
+description: Deploy and manage cloud services on Ink (ml.ink): create projects, deploy services, deploy templates (databases, caches), manage DNS and custom domains, configure workspaces, and monitor deployments. Use this skill whenever the user mentions Ink, ml.ink, deployments, services, databases, templates, or cloud infrastructure on Ink, even if they don't say "Ink" explicitly.
 allowed-tools: Bash(ink:*), Bash(which:*), Bash(command:*), Bash(npm:*), Bash(npx:*), Bash(brew:*), Bash(git:*), Write
 ---
 
