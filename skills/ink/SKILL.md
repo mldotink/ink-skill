@@ -8,9 +8,30 @@ allowed-tools: Bash(ink:*), Bash(which:*), Bash(command:*), Bash(npm:*), Bash(np
 
 [Ink](https://ml.ink) is a cloud platform designed for AI agents to deploy and manage services autonomously. It makes deployments simple enough that fully autonomous agents can handle the entire lifecycle: create, deploy, monitor, and scale services without human intervention.
 
-## Preflight
+## Jaz / MCP-first rule
 
-Before any operation, verify the CLI is installed and authenticated:
+When running inside Jaz and Ink MCP tools are available, use the MCP tools first.
+The container may have the `ink` CLI installed without CLI auth, so a failed
+`ink whoami` is not a blocker when MCP auth is present. Use the CLI path only
+when MCP tools are unavailable or the user explicitly asks for CLI commands.
+
+## App Directory Shape
+
+When creating a new app to deploy, make a dedicated directory for that app and
+initialize git inside it. Do not treat the workspace root as the app repository.
+
+```bash
+mkdir -p apps/my-app
+cd apps/my-app
+git init
+```
+
+Keep one deployable Ink service per app directory unless the user asks for a
+monorepo. Commit the app files before pushing to an Ink repo or deploying.
+
+## CLI Preflight
+
+When using the CLI path, verify the CLI is installed and authenticated:
 
 ```bash
 command -v ink                    # CLI installed
@@ -30,8 +51,8 @@ If not authenticated, run `ink login`.
 
 Ink CLI resolves context in this order (highest priority first):
 
-1. **CLI flags** -- `--api-key`, `--workspace`, `--project`
-2. **Environment** -- `INK_API_KEY`
+1. **CLI flags** -- `--api-key`, `--workspace`, `--project`, `--api-url`, `--oauth-url`, `--web-url`
+2. **Environment** -- `INK_API_KEY`, `INK_WORKSPACE`, `INK_PROJECT`, `INK_API_URL`, `INK_OAUTH_URL`, `INK_WEB_URL`
 3. **Local config** -- `.ink` file in current directory
 4. **Global config** -- `~/.config/ink/config`
 
@@ -114,8 +135,10 @@ ink status my-app                                 # service details
 ink logs my-app                                   # runtime logs
 ink logs my-app --build                           # build logs
 ink deploy my-app --repo my-app --port 3000       # deploy new service
+ink deploy my-app --repo my-app --auth-policy public  # explicit public HTTP auth policy
 ink redeploy my-app                               # redeploy existing
 ink redeploy my-app --memory 1Gi --vcpu 1         # redeploy with new config
+ink redeploy my-app --auth-policy org_sso         # require workspace SSO on Enterprise/self-hosted installs
 ink delete my-app                                 # delete service
 
 ink template                                      # list available templates
@@ -157,6 +180,22 @@ ink template deploy postgres --name my-pg --var db_name=myapp  # pass variables 
 ```
 
 Use `--json` to get machine-readable output with connection credentials from `outputs`.
+
+## Auth Policy
+
+Ink Cloud public HTTP endpoints currently default to `public`; omit
+`--auth-policy` for normal Ink Cloud deploys. Use `--auth-policy public` only
+when being explicit.
+
+Enterprise/self-hosted installs may enable route auth and a different default.
+Use `--auth-policy org_sso` for signed-in workspace members or
+`--auth-policy deployer_sso` for only the signed-in service creator. These SSO
+policies require route auth and a configured SSO mode; they are not useful on
+Ink Cloud while route auth is disabled.
+
+When using MCP directly, prefer the top-level `auth_policy` field on
+`service_create`/`service_update` rather than rebuilding the full `ports` array
+only to change public HTTP auth.
 
 ## Deployment Flows
 
@@ -226,7 +265,9 @@ ink template deploy postgres --name my-pg --var db_name=myapp --var storage_gi=2
 
 ### Deploy a static site or SPA
 
-For static files already present in the repo, use the `static` buildpack. No `--port` needed — Ink serves via nginx automatically.
+For static files already present in the repo, use the `static` buildpack. No
+local Python server or custom start command is needed. No `--port` is needed in
+the CLI path because Ink serves the files via nginx automatically.
 
 ```bash
 ink repos create my-site
@@ -240,6 +281,11 @@ For prebuilt static files in a subdirectory, use `static` with `--publish-dir`:
 ```bash
 ink deploy my-site --repo my-site --buildpack static --publish-dir dist
 ```
+
+When using MCP directly for static sites, prefer `build_pack: "static"` plus
+`publish_directory` when needed. Omit raw `ports` unless you are intentionally
+changing visibility/auth behavior; if you do pass `ports`, provide the complete
+port object, including `port`, `protocol`, `visibility`, and `auth_policy`.
 
 For frontend apps (React, Vue, Vite, Next.js static export, etc.) that need Ink to run a build first, leave the buildpack as railpack and specify the build output directory:
 
@@ -270,7 +316,7 @@ git push ink main
 # 2. Deploy backend from backend/ subdirectory
 ink deploy mono-api --repo my-monorepo --root-dir backend --port 8080
 
-# 3. Deploy frontend from frontend/ subdirectory (public URL is not a secret)
+# 3. Deploy frontend from frontend/ subdirectory
 ink deploy mono-web --repo my-monorepo --root-dir frontend --publish-dir dist \
   --env VITE_API_URL=<backend-url-from-ink-status>
 ```
@@ -287,16 +333,18 @@ Pushes to the GitHub repo automatically trigger redeployment via webhook.
 
 ### Add a custom domain
 
-Requires a DNS zone delegated to Ink first (via https://ml.ink/dns).
+Requires a DNS zone delegated to Ink first at https://ml.ink/dns.
 
 ```bash
 ink dns zones                                     # verify zone is active
 ink domains add my-app app.example.com            # auto-creates DNS + TLS
 ```
 
-### Update a service (scale, env vars, config)
+### Update a service
 
-Use `ink secrets` for env var changes. Use `ink redeploy` for resource/config changes. Pushing code auto-redeploys -- you don't need to call redeploy for that.
+Use `ink secrets` for env var changes. Use `ink redeploy` for resource/config
+changes. Pushing code auto-redeploys, so you do not need to call redeploy after
+a normal git push.
 
 ```bash
 # Add or update non-sensitive env vars
@@ -323,30 +371,32 @@ ink logs my-app --build                           # check build logs
 |--------|--------|---------|
 | Memory | 128Mi, 256Mi, 512Mi, 1024Mi, 2048Mi, 4096Mi | 256Mi |
 | vCPUs | 0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 1, 2, 3, 4 | 0.25 |
-| Region | eu-central-1 | eu-central-1 |
+| Region | Active platform regions; Ink Cloud is currently `us-east-1` | omit for platform default |
 | Branch | any git branch | main |
 
 ## Guidelines
 
-- **Install the CLI first.** If `command -v ink` fails, install with `npm install -g @mldotink/cli`.
-- **Start with `ink whoami --json`.** Confirm auth and inspect configured workspace/project before using any mutating command.
-- **Validate context before deploying.** Use `ink projects list --workspace <workspace> --json` or `ink services --workspace <workspace> --project <project> --json`; stale local/global config can point at a workspace or project that no longer exists.
-- **Check `ink services` before deploying** to see if a service already exists. Use `ink deploy` for new services and `ink redeploy` for existing ones.
-- **Pushing code auto-redeploys.** After `git push`, just poll `ink status` to track progress.
-- **Use `--json` flag** for machine-readable output when you need to parse results.
-- **Memory:** 128Mi, 256Mi (default), 512Mi, 1024Mi, 2048Mi, 4096Mi.
-- **vCPUs:** 0.1, 0.2, 0.25 (default), 0.3, 0.4, 0.5, 1, 2, 3, 4.
-- When deploying, confirm the repo URL and branch with the user first.
-- **Use `ink secrets import` for sensitive values** (credentials, tokens, API keys). Write to a temp file, import, delete the file. Never pass secrets as CLI arguments — they leak to shell history and process listings.
-- **Use `ink secrets set` only for non-sensitive vars** like `NODE_ENV=production`. Never use `ink redeploy --env` to update vars — it replaces all vars.
-- Never hardcode or guess secret values. Secrets should come from the user, from template deploy outputs, or from other Ink CLI output.
-- Show the service URL after successful deployment. Do not construct or guess managed app URL formats; use the endpoint returned by `ink deploy`, `ink status`, or `ink services`.
-- Zone delegation (for custom domains) must be set up by the user at https://ml.ink/dns before you can use `ink domains add`.
-- **Track what you deploy.** After creating repos, services, or templates, record the workspace, project, service names, and endpoints in the project's `CLAUDE.md` (or `AGENTS.md` if it exists). This lets future agent sessions find and manage deployed resources without asking the user. Example:
-  ```markdown
-  ## Ink Deployment
-  - Workspace: my-team
-  - Project: backend
-  - Services: my-api (<url-from-ink-status>), my-worker
-  - Git remote: ink (git.ml.ink/my-team/my-api)
-  ```
+- Install the CLI first. If `command -v ink` fails, install with `npm install -g @mldotink/cli`.
+- Start with `ink whoami --json` when using the CLI path. Confirm auth and inspect configured workspace/project before using mutating commands.
+- Validate context before deploying. Use `ink projects list --workspace <workspace> --json` or `ink services --workspace <workspace> --project <project> --json`; stale local/global config can point at a workspace or project that no longer exists.
+- Check `ink services` before deploying to see if a service already exists. Use `ink deploy` for new services and `ink redeploy` for existing ones.
+- Pushing code auto-redeploys. After `git push`, just poll `ink status` to track progress.
+- Use `--json` for machine-readable output when you need to parse results.
+- Confirm the repo URL and branch with the user before deploying from GitHub or from an ambiguous repo.
+- Use `ink secrets import` for sensitive values. Write to a temp file, import, delete the file. Never pass secrets as CLI arguments.
+- Use `ink secrets set` only for non-sensitive vars like `NODE_ENV=production`.
+- Never use `ink redeploy --env` to update vars unless you intentionally want to replace service env vars through a redeploy; prefer `ink secrets`.
+- Never hardcode or guess secret values. Secrets should come from the user, template deploy outputs, or other Ink CLI output.
+- Show the service URL after successful deployment. Do not construct or guess managed app URL formats; use the endpoint returned by Ink.
+- Zone delegation for custom domains must be set up by the user at https://ml.ink/dns before using `ink domains add`.
+- Track what you deploy. After creating repos, services, or templates, record the workspace, project, service names, and endpoints in the project's `CLAUDE.md` or `AGENTS.md`.
+
+Example deployment note:
+
+```markdown
+## Ink Deployment
+- Workspace: my-team
+- Project: backend
+- Services: my-api (<url-from-ink-status>), my-worker
+- Git remote: ink (git.ml.ink/my-team/my-api)
+```
