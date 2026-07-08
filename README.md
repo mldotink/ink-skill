@@ -1,6 +1,6 @@
 # Ink Skills
 
-Agent skill for [Ink](https://ml.ink) — a cloud platform designed for AI agents to deploy and manage services autonomously. It makes deployments simple enough that fully autonomous agents can handle the entire lifecycle: create, deploy, monitor, and scale services without human intervention.
+Agent skill for [Ink](https://deployink.com) — a cloud platform designed for AI agents to deploy and manage services autonomously. It makes deployments simple enough that fully autonomous agents can handle the entire lifecycle: create, deploy, monitor, and scale services without human intervention.
 
 ## Installation
 
@@ -41,7 +41,7 @@ Or add the repo as an extra skills directory in `~/.openclaw/openclaw.json`:
 
 ## Setup
 
-1. Get an API key from the [Ink dashboard](https://ml.ink/onboarding) or under Settings > Agent Keys
+1. Get an API key from the [Ink dashboard](https://deployink.com/onboarding) or under Settings > Agent Keys
 2. Install the Ink CLI if you do not already have it:
    ```bash
    npm install -g @mldotink/cli

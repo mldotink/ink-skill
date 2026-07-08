@@ -1,12 +1,12 @@
 ---
 name: ink
-description: Deploy and manage cloud services on Ink (ml.ink): create projects, deploy services, deploy templates (databases, caches), manage DNS and custom domains, configure workspaces, and monitor deployments. Use this skill whenever the user mentions Ink, ml.ink, deployments, services, databases, templates, or cloud infrastructure on Ink, even if they don't say "Ink" explicitly.
+description: Deploy and manage cloud services on Ink (deployink.com, legacy ml.ink): create projects, deploy services, deploy templates (databases, caches), manage DNS and custom domains, configure workspaces, and monitor deployments. Use this skill whenever the user mentions Ink, deployink.com, ml.ink, deployments, services, databases, templates, or cloud infrastructure on Ink, even if they don't say "Ink" explicitly.
 allowed-tools: Bash(ink:*), Bash(which:*), Bash(command:*), Bash(npm:*), Bash(npx:*), Bash(brew:*), Bash(git:*), Write
 ---
 
 # Use Ink
 
-[Ink](https://ml.ink) is a cloud platform designed for AI agents to deploy and manage services autonomously. It makes deployments simple enough that fully autonomous agents can handle the entire lifecycle: create, deploy, monitor, and scale services without human intervention.
+[Ink](https://deployink.com) is a cloud platform designed for AI agents to deploy and manage services autonomously. It makes deployments simple enough that fully autonomous agents can handle the entire lifecycle: create, deploy, monitor, and scale services without human intervention.
 
 ## Jaz / MCP-first rule
 
@@ -74,7 +74,7 @@ git push ink main                 # push code -- auto-triggers deployment
 
 ### Option 2: GitHub
 
-Requires GitHub OAuth and GitHub App connected at https://ml.ink (Settings > GitHub).
+Requires GitHub OAuth and GitHub App connected at https://deployink.com (Settings > GitHub).
 
 ```bash
 ink deploy my-app --repo username/repo-name --host github --port 3000
@@ -323,7 +323,7 @@ ink deploy mono-web --repo my-monorepo --root-dir frontend --publish-dir dist \
 
 ### Deploy from GitHub
 
-Requires GitHub OAuth and App connected at https://ml.ink.
+Requires GitHub OAuth and App connected at https://deployink.com.
 
 ```bash
 ink deploy my-app --repo username/repo-name --host github --port 3000
@@ -333,7 +333,7 @@ Pushes to the GitHub repo automatically trigger redeployment via webhook.
 
 ### Add a custom domain
 
-Requires a DNS zone delegated to Ink first at https://ml.ink/dns.
+Requires a DNS zone delegated to Ink first at https://deployink.com/dns.
 
 ```bash
 ink dns zones                                     # verify zone is active
@@ -388,7 +388,7 @@ ink logs my-app --build                           # check build logs
 - Never use `ink redeploy --env` to update vars unless you intentionally want to replace service env vars through a redeploy; prefer `ink secrets`.
 - Never hardcode or guess secret values. Secrets should come from the user, template deploy outputs, or other Ink CLI output.
 - Show the service URL after successful deployment. Do not construct or guess managed app URL formats; use the endpoint returned by Ink.
-- Zone delegation for custom domains must be set up by the user at https://ml.ink/dns before using `ink domains add`.
+- Zone delegation for custom domains must be set up by the user at https://deployink.com/dns before using `ink domains add`.
 - Track what you deploy. After creating repos, services, or templates, record the workspace, project, service names, and endpoints in the project's `CLAUDE.md` or `AGENTS.md`.
 
 Example deployment note:
@@ -398,5 +398,5 @@ Example deployment note:
 - Workspace: my-team
 - Project: backend
 - Services: my-api (<url-from-ink-status>), my-worker
-- Git remote: ink (git.ml.ink/my-team/my-api)
+- Git remote: ink (git.deployink.com/my-team/my-api)
 ```

@@ -1,6 +1,6 @@
 # ink
 
-Agent skill for deploying and managing cloud services on [Ink](https://ml.ink) — a cloud platform for autonomous AI agents.
+Agent skill for deploying and managing cloud services on [Ink](https://deployink.com) — a cloud platform for autonomous AI agents.
 
 ## Skills
 
