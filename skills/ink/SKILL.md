@@ -138,7 +138,7 @@ ink deploy my-app --repo my-app --port 3000       # deploy new service
 ink deploy my-app --repo my-app --auth-policy public  # explicit public HTTP auth policy
 ink redeploy my-app                               # redeploy existing
 ink redeploy my-app --memory 1Gi --vcpu 1         # redeploy with new config
-ink redeploy my-app --auth-policy org_sso         # require workspace SSO on Enterprise/self-hosted installs
+ink redeploy my-app --auth-policy org_sso         # require organization SSO on Enterprise/self-hosted installs
 ink delete my-app                                 # delete service
 
 ink template                                      # list available templates
@@ -188,10 +188,10 @@ Ink Cloud public HTTP endpoints currently default to `public`; omit
 when being explicit.
 
 Enterprise/self-hosted installs may enable route auth and a different default.
-Use `--auth-policy org_sso` for signed-in workspace members or
-`--auth-policy deployer_sso` for only the signed-in service creator. These SSO
-policies require route auth and a configured SSO mode; they are not useful on
-Ink Cloud while route auth is disabled.
+Use `--auth-policy org_sso` for any user authenticated through the configured
+organization SSO. Use `--auth-policy deployer_sso` for only the signed-in
+service creator. Both policies require route auth and a configured SSO mode;
+they are not useful on Ink Cloud while route auth is disabled.
 
 When using MCP directly, prefer the top-level `auth_policy` field on
 `service_create`/`service_update` rather than rebuilding the full `ports` array
